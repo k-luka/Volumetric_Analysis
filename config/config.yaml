@@ -6,9 +6,10 @@ fastsurfer:
   home: ${oc.env:FASTSURFER_HOME,external/fastsurfer}
   install_if_missing: true
   install_requirements: true
+  requirements_file: requirements.txt
   repo_url: https://github.com/Deep-MI/FastSurfer.git
   branch: stable
-  python: python3
+  python: python
   allow_root: true
   extra_args: []
 

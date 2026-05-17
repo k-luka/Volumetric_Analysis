@@ -9,7 +9,6 @@ from datetime import datetime
 from pathlib import Path
 
 import hydra
-import matplotlib.pyplot as plt
 import nibabel as nib
 import numpy as np
 import pandas as pd
@@ -88,8 +87,9 @@ def ensure_fastsurfer(cfg: DictConfig) -> Path:
         check=True,
     )
     if cfg.fastsurfer.install_requirements:
+        requirements_path = home / str(cfg.fastsurfer.requirements_file)
         subprocess.run(
-            [sys.executable, "-m", "pip", "install", "-r", str(home / "requirements.txt")],
+            [sys.executable, "-m", "pip", "install", "-r", str(requirements_path)],
             check=True,
         )
     return home
@@ -132,6 +132,8 @@ def compute_volume(segmentation_path: Path) -> tuple[int, tuple[float, float, fl
 
 
 def save_example_qc(image_path: Path, segmentation_path: Path, output_path: Path, slices: int) -> None:
+    import matplotlib.pyplot as plt
+
     image = np.asarray(nib.load(str(image_path)).dataobj, dtype=np.float32)
     labels = np.asarray(nib.load(str(segmentation_path)).dataobj)
     if image.shape != labels.shape:
