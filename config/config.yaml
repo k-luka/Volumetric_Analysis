@@ -1,0 +1,28 @@
+input_dir: data/scans
+output_dir: outputs
+recursive: false
+
+fastsurfer:
+  home: ${oc.env:FASTSURFER_HOME,external/fastsurfer}
+  install_if_missing: true
+  install_requirements: true
+  repo_url: https://github.com/Deep-MI/FastSurfer.git
+  branch: stable
+  python: python3
+  allow_root: true
+  extra_args: []
+
+report:
+  filename_prefix: brain_volumes
+
+qc:
+  save_example: true
+  segmentation_name: example_segmentation.mgz
+  image_name: example_qc.png
+  slices: 12
+
+hydra:
+  job:
+    chdir: false
+  run:
+    dir: .
