@@ -9,7 +9,7 @@
 - Segment each scan with FastSurferVINN.
 - Compute whole-brain volume as all non-background segmentation labels for alpha.
 - Save one example segmentation output for inspection.
-- Save one QC image showing multiple slices for the example segmentation.
+- Save color and binary QC images showing multiple slices for the example segmentation.
 - Produce a unique Excel report per run.
 - Include scan filename, subject ID, volume in mm3, volume in mL, voxel spacing, voxel count, and status/error in the report.
 - Use a Hydra YAML config file so runs are easy to configure.

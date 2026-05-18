@@ -1,0 +1,80 @@
+---
+cluster: "hipergator"
+form:
+  - input_dir
+  - output_dir
+  - recursive
+  - email
+  - apptainer_image
+  - slurm_account
+  - slurm_partition
+  - slurm_qos
+  - num_hours
+  - num_cpus
+  - memory_gb
+  - gpu_count
+
+attributes:
+  input_dir:
+    label: "Input folder"
+    widget: text_field
+    value: ""
+    help: "Existing HiPerGator folder containing .nii or .nii.gz scans."
+  output_dir:
+    label: "Output folder"
+    widget: text_field
+    value: ""
+    help: "Existing or new HiPerGator folder where reports and QC files should be written."
+  recursive:
+    label: "Search recursively"
+    widget: check_box
+    value: 0
+    help: "Also search subfolders for .nii and .nii.gz files."
+  email:
+    label: "Email when done or failed"
+    widget: text_field
+    value: ""
+    help: "Optional. Slurm sends END and FAIL notifications to this address."
+  apptainer_image:
+    label: "Apptainer image path"
+    widget: text_field
+    value: "/blue/GROUP/containers/volumetric-analysis_cuda-v2.4.2.sif"
+    help: "Full path to the .sif image on HiPerGator storage."
+  slurm_account:
+    label: "Slurm account"
+    widget: text_field
+    value: ""
+    help: "Leave blank if your HiPerGator defaults are correct."
+  slurm_partition:
+    label: "Partition"
+    widget: text_field
+    value: "gpu"
+  slurm_qos:
+    label: "QoS"
+    widget: text_field
+    value: ""
+    help: "Leave blank unless your allocation requires a QoS."
+  num_hours:
+    label: "Wall time in hours"
+    widget: number_field
+    value: 24
+    min: 1
+    max: 72
+  num_cpus:
+    label: "CPU cores"
+    widget: number_field
+    value: 4
+    min: 1
+    max: 16
+  memory_gb:
+    label: "Memory in GB"
+    widget: number_field
+    value: 32
+    min: 8
+    max: 128
+  gpu_count:
+    label: "GPU count"
+    widget: number_field
+    value: 1
+    min: 1
+    max: 1

@@ -4,6 +4,7 @@ recursive: false
 
 fastsurfer:
   home: ${oc.env:FASTSURFER_HOME,external/fastsurfer}
+  executable: null
   install_if_missing: true
   install_requirements: true
   requirements_file: requirements.txt
@@ -11,7 +12,11 @@ fastsurfer:
   branch: stable
   python: python
   allow_root: true
-  extra_args: []
+  device: null
+  viewagg_device: null
+  extra_args:
+    - --no_cereb
+    - --no_hypothal
 
 report:
   filename_prefix: brain_volumes
@@ -19,7 +24,8 @@ report:
 qc:
   save_example: true
   segmentation_name: example_segmentation.mgz
-  image_name: example_qc.png
+  color_image_name: example_qc_color.png
+  binary_image_name: example_qc_binary.png
   slices: 12
 
 hydra:

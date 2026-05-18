@@ -1,3 +1,4 @@
+.git/
 __pycache__/
 *.py[cod]
 .hydra/
@@ -9,3 +10,6 @@ data/
 .conda-env/
 *.sif
 *.tar
+*.mgz
+*.nii
+*.nii.gz

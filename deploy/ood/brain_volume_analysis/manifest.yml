@@ -1,0 +1,7 @@
+---
+name: Brain Volume Analysis
+category: Interactive Apps
+subcategory: Medical Imaging
+role: batch_connect
+description: |
+  Submit a brain volume analysis Slurm job on HiPerGator.

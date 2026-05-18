@@ -1,0 +1,26 @@
+---
+batch_connect:
+  template: "basic"
+
+script:
+  native:
+    - "--job-name=brain-volume-analysis"
+    - "--nodes=1"
+    - "--ntasks=1"
+    - "--cpus-per-task=<%= num_cpus %>"
+    - "--mem=<%= memory_gb %>G"
+    - "--time=<%= num_hours %>:00:00"
+    - "--gres=gpu:<%= gpu_count %>"
+    <% unless email.to_s.strip.empty? %>
+    - "--mail-type=END,FAIL"
+    - "--mail-user=<%= email %>"
+    <% end %>
+    <% unless slurm_account.to_s.strip.empty? %>
+    - "--account=<%= slurm_account %>"
+    <% end %>
+    <% unless slurm_partition.to_s.strip.empty? %>
+    - "--partition=<%= slurm_partition %>"
+    <% end %>
+    <% unless slurm_qos.to_s.strip.empty? %>
+    - "--qos=<%= slurm_qos %>"
+    <% end %>

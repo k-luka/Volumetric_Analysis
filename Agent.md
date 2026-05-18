@@ -15,7 +15,7 @@ Build a Python command-line tool that:
 - Runs FastSurferVINN segmentation.
 - Computes alpha whole-brain volume as all non-background segmentation labels.
 - Writes a unique Excel report per run.
-- Saves one example segmentation and one QC slice montage for visual inspection.
+- Saves one example segmentation and two QC slice montages for visual inspection.
 - Uses filename-based subject IDs.
 - Skips scans with missing or invalid voxel spacing and reports the error in Excel.
 - Is configurable through Hydra YAML.
@@ -37,7 +37,13 @@ Expected alpha batch size is about 50 volumes.
 - Config: `config/config.yaml`
 - Python dependencies: `requirements.txt`
 - Scope notes and remaining study questions: `OPEN_QUESTIONS.md`
+- Current alpha spec: `docs/CURRENT_SPEC.md`
+- Presentation next steps: `docs/PRESENTATION_NEXT_STEPS.md`
+- Technical debt tracker: `docs/TECHNICAL_DEBT.md`
+- Open OnDemand batch app plan: `docs/OOD_BATCH_APP_PLAN.md`
 - Usage instructions: `README.md`
+- Apptainer container files: `deploy/apptainer/`
+- Open OnDemand batch app wrapper: `deploy/ood/brain_volume_analysis/`
 
 The runner:
 
@@ -48,7 +54,7 @@ The runner:
 5. Counts nonzero voxels.
 6. Multiplies by segmentation voxel spacing.
 7. Writes an Excel report.
-8. Copies one example segmentation and writes one QC PNG.
+8. Copies one example segmentation and writes one color QC PNG plus one binary QC PNG.
 
 ## License Notes
 
@@ -62,7 +68,9 @@ The runner:
 - Use Conda as the primary environment path, but do not use an `environment.yml` unless the user explicitly asks.
 - Recommended environment name: `vol-analysis`.
 - Create the environment with Python 3.10, then install `requirements.txt` into it with pip.
-- On Apple Silicon macOS, FastSurfer should use `requirements.mac.txt` and can try `--device mps` with `PYTORCH_ENABLE_MPS_FALLBACK=1`.
+- On Apple Silicon macOS, FastSurfer should use `requirements.mac.txt` and can try `fastsurfer.device=mps` with `PYTORCH_ENABLE_MPS_FALLBACK=1`.
+- In the Apptainer container, use `fastsurfer.executable=/fastsurfer/run_fastsurfer.sh` and `fastsurfer.device=cuda`.
+- The doctor-facing HiPerGator workflow is an OOD batch form that submits a Slurm job. Do not reintroduce an interactive GPU web session unless the user explicitly asks.
 
 ## Open Scientific Questions
 

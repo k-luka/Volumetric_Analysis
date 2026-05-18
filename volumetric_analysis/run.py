@@ -16,6 +16,18 @@ from omegaconf import DictConfig
 
 
 SEGMENTATION_NAME = "aparc.DKTatlas+aseg.deep.mgz"
+REPORT_COLUMNS = [
+    "filename",
+    "path",
+    "subject_id",
+    "input_spacing_mm",
+    "segmentation_spacing_mm",
+    "voxel_count",
+    "volume_mm3",
+    "volume_ml",
+    "status",
+    "error",
+]
 
 
 def find_scans(input_dir: Path, recursive: bool) -> list[Path]:
@@ -63,7 +75,19 @@ def spacing_text(spacing: tuple[float, float, float] | None) -> str:
     return " x ".join(f"{value:g}" for value in spacing)
 
 
-def ensure_fastsurfer(cfg: DictConfig) -> Path:
+def optional_text(value: object) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text or text.lower() in {"none", "null"}:
+        return None
+    return text
+
+
+def ensure_fastsurfer(cfg: DictConfig) -> Path | None:
+    if fastsurfer_executable(cfg) is not None:
+        return None
+
     home = Path(str(cfg.fastsurfer.home)).expanduser().resolve()
     runner = home / "run_fastsurfer.sh"
     if runner.exists():
@@ -95,10 +119,36 @@ def ensure_fastsurfer(cfg: DictConfig) -> Path:
     return home
 
 
-def run_fastsurfer(scan: Path, subject_id: str, subjects_dir: Path, cfg: DictConfig) -> int:
-    home = Path(str(cfg.fastsurfer.home)).expanduser().resolve()
+def fastsurfer_executable(cfg: DictConfig) -> str | None:
+    executable = optional_text(cfg.fastsurfer.get("executable"))
+    if executable is None:
+        return None
+
+    path = Path(executable).expanduser()
+    if path.is_absolute() or os.sep in executable:
+        if not path.exists():
+            raise FileNotFoundError(f"FastSurfer executable was not found: {path}")
+        return str(path.resolve())
+
+    resolved = shutil.which(executable)
+    if resolved is None:
+        raise FileNotFoundError(f"FastSurfer executable was not found on PATH: {executable}")
+    return resolved
+
+
+def build_fastsurfer_command(
+    scan: Path,
+    subject_id: str,
+    subjects_dir: Path,
+    cfg: DictConfig,
+) -> list[str]:
+    executable = fastsurfer_executable(cfg)
+    if executable is None:
+        home = Path(str(cfg.fastsurfer.home)).expanduser().resolve()
+        executable = str(home / "run_fastsurfer.sh")
+
     command = [
-        str(home / "run_fastsurfer.sh"),
+        executable,
         "--t1",
         str(scan),
         "--sd",
@@ -111,10 +161,25 @@ def run_fastsurfer(scan: Path, subject_id: str, subjects_dir: Path, cfg: DictCon
     ]
     if cfg.fastsurfer.allow_root:
         command.append("--allow_root")
-    command.extend(str(arg) for arg in cfg.fastsurfer.extra_args)
 
+    device = optional_text(cfg.fastsurfer.get("device"))
+    if device:
+        command.extend(["--device", device])
+
+    viewagg_device = optional_text(cfg.fastsurfer.get("viewagg_device"))
+    if viewagg_device:
+        command.extend(["--viewagg_device", viewagg_device])
+
+    command.extend(str(arg) for arg in (cfg.fastsurfer.get("extra_args") or []))
+    return command
+
+
+def run_fastsurfer(scan: Path, subject_id: str, subjects_dir: Path, cfg: DictConfig) -> int:
+    command = build_fastsurfer_command(scan, subject_id, subjects_dir, cfg)
     env = os.environ.copy()
-    env["FASTSURFER_HOME"] = str(home)
+    if fastsurfer_executable(cfg) is None:
+        home = Path(str(cfg.fastsurfer.home)).expanduser().resolve()
+        env["FASTSURFER_HOME"] = str(home)
     return subprocess.run(command, env=env).returncode
 
 
@@ -131,8 +196,15 @@ def compute_volume(segmentation_path: Path) -> tuple[int, tuple[float, float, fl
     return voxel_count, spacing, volume_mm3, volume_ml
 
 
-def save_example_qc(image_path: Path, segmentation_path: Path, output_path: Path, slices: int) -> None:
+def save_example_qc(
+    image_path: Path,
+    segmentation_path: Path,
+    output_path: Path,
+    slices: int,
+    binary: bool,
+) -> None:
     import matplotlib.pyplot as plt
+    from matplotlib.colors import ListedColormap
 
     image = np.asarray(nib.load(str(image_path)).dataobj, dtype=np.float32)
     labels = np.asarray(nib.load(str(segmentation_path)).dataobj)
@@ -152,8 +224,13 @@ def save_example_qc(image_path: Path, segmentation_path: Path, output_path: Path
 
     for axis, index in zip(axes_array, indices):
         axis.imshow(np.rot90(image[:, :, index]), cmap="gray")
-        overlay = np.ma.masked_where(labels[:, :, index] == 0, labels[:, :, index])
-        axis.imshow(np.rot90(overlay), cmap="tab20", alpha=0.35, interpolation="nearest")
+        if binary:
+            overlay = np.ma.masked_where(labels[:, :, index] == 0, labels[:, :, index] > 0)
+            cmap = ListedColormap(["#2ca7ff"])
+        else:
+            overlay = np.ma.masked_where(labels[:, :, index] == 0, labels[:, :, index])
+            cmap = "tab20"
+        axis.imshow(np.rot90(overlay), cmap=cmap, alpha=0.35, interpolation="nearest")
         axis.axis("off")
 
     for axis in axes_array[len(indices) :]:
@@ -165,11 +242,103 @@ def save_example_qc(image_path: Path, segmentation_path: Path, output_path: Path
     plt.close(fig)
 
 
-def write_report(rows: list[dict[str, object]], output_dir: Path, prefix: str, run_id: str) -> Path:
+def save_example_outputs(
+    conformed_image_path: Path,
+    segmentation_path: Path,
+    output_dir: Path,
+    cfg: DictConfig,
+) -> None:
+    shutil.copy2(segmentation_path, output_dir / str(cfg.qc.segmentation_name))
+    if not conformed_image_path.exists():
+        return
+
+    save_example_qc(
+        conformed_image_path,
+        segmentation_path,
+        output_dir / str(cfg.qc.color_image_name),
+        int(cfg.qc.slices),
+        binary=False,
+    )
+    save_example_qc(
+        conformed_image_path,
+        segmentation_path,
+        output_dir / str(cfg.qc.binary_image_name),
+        int(cfg.qc.slices),
+        binary=True,
+    )
+
+
+def new_report_row(scan: Path, subject_id: str) -> dict[str, object]:
+    return {
+        "filename": scan.name,
+        "path": str(scan),
+        "subject_id": subject_id,
+        "input_spacing_mm": "",
+        "segmentation_spacing_mm": "",
+        "voxel_count": "",
+        "volume_mm3": "",
+        "volume_ml": "",
+        "status": "failed",
+        "error": "",
+    }
+
+
+def process_scan(
+    scan: Path,
+    subject_id: str,
+    subjects_dir: Path,
+    output_dir: Path,
+    cfg: DictConfig,
+) -> dict[str, object]:
+    row = new_report_row(scan, subject_id)
+    print(f"Processing {scan.name}")
+
+    try:
+        row["input_spacing_mm"] = spacing_text(read_spacing(scan))
+    except Exception as exc:
+        row["error"] = str(exc)
+        return row
+
+    return_code = run_fastsurfer(scan, subject_id, subjects_dir, cfg)
+    if return_code != 0:
+        row["error"] = f"FastSurfer failed with exit code {return_code}"
+        return row
+
+    subject_mri_dir = subjects_dir / subject_id / "mri"
+    segmentation_path = subject_mri_dir / SEGMENTATION_NAME
+    conformed_image_path = subject_mri_dir / "orig.mgz"
+    if not segmentation_path.exists():
+        row["error"] = f"Missing segmentation output: {segmentation_path}"
+        return row
+
+    try:
+        voxel_count, spacing, volume_mm3, volume_ml = compute_volume(segmentation_path)
+    except Exception as exc:
+        row["error"] = str(exc)
+        return row
+
+    row["segmentation_spacing_mm"] = spacing_text(spacing)
+    row["voxel_count"] = voxel_count
+    row["volume_mm3"] = volume_mm3
+    row["volume_ml"] = volume_ml
+    row["status"] = "ok"
+
+    if cfg.qc.save_example:
+        save_example_outputs(conformed_image_path, segmentation_path, output_dir, cfg)
+
+    return row
+
+
+def write_report(
+    rows: list[dict[str, object]],
+    output_dir: Path,
+    prefix: str,
+    run_id: str,
+) -> Path:
     reports_dir = output_dir / "reports"
     reports_dir.mkdir(parents=True, exist_ok=True)
     report_path = reports_dir / f"{prefix}_{run_id}.xlsx"
-    pd.DataFrame(rows).to_excel(report_path, index=False)
+    pd.DataFrame(rows, columns=REPORT_COLUMNS).to_excel(report_path, index=False)
     return report_path
 
 
@@ -190,71 +359,15 @@ def main(cfg: DictConfig) -> None:
         return
 
     fastsurfer_home = ensure_fastsurfer(cfg)
-    cfg.fastsurfer.home = str(fastsurfer_home)
+    if fastsurfer_home is not None:
+        cfg.fastsurfer.home = str(fastsurfer_home)
 
     subject_ids = unique_subject_ids(scans)
     rows: list[dict[str, object]] = []
 
     for scan in scans:
         subject_id = subject_ids[scan]
-        row: dict[str, object] = {
-            "filename": scan.name,
-            "path": str(scan),
-            "subject_id": subject_id,
-            "input_spacing_mm": "",
-            "segmentation_spacing_mm": "",
-            "voxel_count": "",
-            "volume_mm3": "",
-            "volume_ml": "",
-            "status": "failed",
-            "error": "",
-        }
-
-        print(f"Processing {scan.name}")
-        try:
-            row["input_spacing_mm"] = spacing_text(read_spacing(scan))
-        except Exception as exc:
-            row["error"] = str(exc)
-            rows.append(row)
-            continue
-
-        return_code = run_fastsurfer(scan, subject_id, subjects_dir, cfg)
-        if return_code != 0:
-            row["error"] = f"FastSurfer failed with exit code {return_code}"
-            rows.append(row)
-            continue
-
-        subject_mri_dir = subjects_dir / subject_id / "mri"
-        segmentation_path = subject_mri_dir / SEGMENTATION_NAME
-        conformed_image_path = subject_mri_dir / "orig.mgz"
-        if not segmentation_path.exists():
-            row["error"] = f"Missing segmentation output: {segmentation_path}"
-            rows.append(row)
-            continue
-
-        try:
-            voxel_count, spacing, volume_mm3, volume_ml = compute_volume(segmentation_path)
-            row["segmentation_spacing_mm"] = spacing_text(spacing)
-            row["voxel_count"] = voxel_count
-            row["volume_mm3"] = volume_mm3
-            row["volume_ml"] = volume_ml
-            row["status"] = "ok"
-        except Exception as exc:
-            row["error"] = str(exc)
-            rows.append(row)
-            continue
-
-        if cfg.qc.save_example:
-            shutil.copy2(segmentation_path, output_dir / str(cfg.qc.segmentation_name))
-            if conformed_image_path.exists():
-                save_example_qc(
-                    conformed_image_path,
-                    segmentation_path,
-                    output_dir / str(cfg.qc.image_name),
-                    int(cfg.qc.slices),
-                )
-
-        rows.append(row)
+        rows.append(process_scan(scan, subject_id, subjects_dir, output_dir, cfg))
 
     report_path = write_report(rows, output_dir, str(cfg.report.filename_prefix), run_id)
     print(f"Wrote report: {report_path}")
