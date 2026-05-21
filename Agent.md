@@ -84,3 +84,5 @@ The runner:
 ## User Preference
 
 The user specifically warned that AI agents often overbuild. Keep changes small, explicit, and focused on the requested functionality.
+
+Ralph may exist locally as an experimental agentic loop tool. `.ralph/` is ignored; only use Ralph when the user asks for it on a concrete feature.

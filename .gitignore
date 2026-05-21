@@ -7,5 +7,6 @@ external/
 data/
 .venv/
 .conda-env/
+.ralph/
 *.sif
 *.tar
