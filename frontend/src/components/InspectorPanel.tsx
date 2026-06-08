@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { Button, Label, ListBox, ListBoxItem, Popover, Select, SelectValue } from "react-aria-components";
 import { Download, FileSpreadsheet, RefreshCcw, Stethoscope } from "lucide-react";
 import { openDownload } from "../lib/api";
@@ -171,24 +171,35 @@ export function InspectorPanel({
         ) : activeReport.rows.length === 0 ? (
           <div className="inline-note">No scan rows are available for this report.</div>
         ) : (
-          <div className="scan-results-box" role="list" aria-label="Scan results">
-            {activeReport.rows.map((row) => {
-              const failed = Boolean(row.status) && row.status !== "ok";
-              return (
-                <div className={`scan-result-item ${failed ? "fail" : "ok"}`} role="listitem" key={row.path || row.filename}>
-                  <div className="scan-result-head">
-                    <span className="scan-result-file" title={row.filename}>{row.filename || "-"}</span>
-                    <span className="scan-result-status">{row.status || "-"}</span>
-                  </div>
-                  <div className="scan-result-meta">
-                    <span title="Subject">{row.subject_id || "-"}</span>
-                    <span title="Input spacing">{formatStat(row.input_spacing_mm)} mm</span>
-                    <span title="Volume">{formatStat(row.volume_ml)} mL</span>
-                  </div>
-                  {row.error ? <div className="scan-result-error">{row.error}</div> : null}
-                </div>
-              );
-            })}
+          <div className="scan-results-table" role="table" aria-label="Scan results">
+            <div className="scan-results-head" role="rowgroup">
+              <div className="scan-results-row" role="row">
+                <span role="columnheader">File</span>
+                <span role="columnheader">Vol (mL)</span>
+                <span role="columnheader">Status</span>
+              </div>
+            </div>
+            <div className="scan-results-body" role="rowgroup">
+              {activeReport.rows.map((row) => {
+                const failed = Boolean(row.status) && row.status !== "ok";
+                return (
+                  <Fragment key={row.path || row.filename}>
+                    <div className="scan-results-row" role="row">
+                      <span role="cell" className="scan-cell-file" title={`${row.filename} — ${row.subject_id}, ${formatStat(row.input_spacing_mm)} mm`}>
+                        {row.filename || "-"}
+                      </span>
+                      <span role="cell" className="scan-cell-num">{formatStat(row.volume_ml)}</span>
+                      <span role="cell" className={`scan-cell-status ${failed ? "fail" : ""}`}>{row.status || "-"}</span>
+                    </div>
+                    {row.error ? (
+                      <div className="scan-results-error-row" role="row">
+                        <span role="cell">{row.error}</span>
+                      </div>
+                    ) : null}
+                  </Fragment>
+                );
+              })}
+            </div>
           </div>
         )}
       </section>
@@ -216,8 +227,11 @@ export function InspectorPanel({
           {runtimeChecks.length === 0 ? <div className="inline-note">{runtimeReadiness.detail}</div> : null}
           {runtimeChecks.map((check) => (
             <div className={`check-row ${check.status}`} key={`${check.label}-${check.detail}`}>
-              <strong>{check.label}</strong>
-              <span>{check.detail}</span>
+              <div className="check-row-head">
+                <strong>{check.label}</strong>
+                <span className="check-status">{check.status}</span>
+              </div>
+              <span className="check-detail">{check.detail}</span>
             </div>
           ))}
         </div>

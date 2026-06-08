@@ -1573,85 +1573,94 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
-/* Per-scan stats moved out of the center canvas into the right panel: a
-   fixed-height box so the layout never jumps as the scan count changes; it
-   scrolls once there are more scans than fit. */
-.scan-results-box {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  height: 196px;
-  margin-top: 4px;
-  padding-right: 2px;
-  overflow-y: auto;
-}
-
-.scan-result-item {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  padding: 8px 9px;
+/* Per-scan stats live in the right panel, styled like the Detailed result
+   table (header + scrolling body, plain separators — no colored edges). Fixed
+   body height so the layout never jumps as the scan count changes; it scrolls
+   once there are more scans than fit. */
+.scan-results-table {
+  margin-top: 6px;
+  overflow: hidden;
   border: 1px solid var(--line);
-  border-left-width: 3px;
   border-radius: var(--radius);
-  background: var(--field);
+  background: rgba(255, 255, 255, 0.015);
 }
 
-.scan-result-item.ok {
-  border-left-color: var(--ok);
-}
-
-.scan-result-item.fail {
-  border-left-color: var(--danger);
-}
-
-.scan-result-head {
-  display: flex;
+.scan-results-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(44px, auto);
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
 }
 
-.scan-result-file {
+.scan-results-head {
+  border-bottom: 1px solid var(--line-strong);
+  background: var(--panel-strong);
+}
+
+.scan-results-head .scan-results-row span {
+  padding: 8px 10px;
+  color: var(--ink);
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.scan-results-head .scan-results-row span:nth-child(n + 2) {
+  text-align: right;
+}
+
+.scan-results-body {
+  height: 168px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.scan-results-body .scan-results-row {
+  border-bottom: 1px solid var(--line);
+}
+
+.scan-results-body .scan-results-row span {
   min-width: 0;
+  padding: 8px 10px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--ink);
   font-size: 12px;
-  font-weight: 600;
 }
 
-.scan-result-status {
-  flex: 0 0 auto;
+.scan-cell-num,
+.scan-cell-status {
+  text-align: right;
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+}
+
+.scan-cell-status {
+  font-size: 11px;
   color: var(--muted);
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
-.scan-result-item.ok .scan-result-status {
-  color: var(--ok);
-}
-
-.scan-result-item.fail .scan-result-status {
+.scan-cell-status.fail {
   color: var(--danger);
 }
 
-.scan-result-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 12px;
-  color: var(--muted);
-  font-family: "SF Mono", Menlo, Consolas, monospace;
-  font-size: 11px;
+.scan-results-error-row {
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
 }
 
-.scan-result-error {
+.scan-results-error-row span {
+  display: block;
+  padding: 6px 10px;
   color: var(--danger);
   font-size: 11px;
   overflow-wrap: anywhere;
+}
+
+.theme-light .scan-results-table {
+  background: rgba(31, 42, 59, 0.02);
 }
 
 .run-log-list {
@@ -1681,9 +1690,15 @@ button:disabled {
   gap: 4px;
   padding: 9px;
   border: 1px solid var(--line);
-  border-left-width: 3px;
   border-radius: var(--radius);
   background: var(--field);
+}
+
+.check-row-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .check-row strong {
@@ -1691,22 +1706,32 @@ button:disabled {
   font-size: 12px;
 }
 
-.check-row span {
+.check-status {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.check-row.ok .check-status {
+  color: var(--ok);
+}
+
+.check-row.warn .check-status {
+  color: var(--warn);
+}
+
+.check-row.fail .check-status {
+  color: var(--danger);
+}
+
+.check-detail {
   color: var(--muted);
   font-size: 11px;
   overflow-wrap: anywhere;
-}
-
-.check-row.ok {
-  border-left-color: var(--ok);
-}
-
-.check-row.warn {
-  border-left-color: var(--warn);
-}
-
-.check-row.fail {
-  border-left-color: var(--danger);
 }
 
 @keyframes progress-shimmer {

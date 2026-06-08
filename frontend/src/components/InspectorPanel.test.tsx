@@ -248,14 +248,15 @@ describe("InspectorPanel", () => {
     );
 
     expect(screen.getByText("Scan results")).toBeInTheDocument();
-    const list = screen.getByRole("list", { name: /scan results/i });
-    expect(within(list).getByText("sub-01.nii.gz")).toBeInTheDocument();
-    expect(within(list).getByText("sub-02.nii.gz")).toBeInTheDocument();
-    // Volume is formatted with separators and shown per scan.
-    expect(within(list).getByText(/1,246\.35\s*mL/)).toBeInTheDocument();
+    const table = screen.getByRole("table", { name: /scan results/i });
+    expect(within(table).getByText("sub-01.nii.gz")).toBeInTheDocument();
+    expect(within(table).getByText("sub-02.nii.gz")).toBeInTheDocument();
+    // Volume is formatted with separators in its own column (unit in the header).
+    expect(within(table).getByText("1,246.35")).toBeInTheDocument();
+    expect(within(table).getByRole("columnheader", { name: /vol \(ml\)/i })).toBeInTheDocument();
     // The failed scan surfaces its status and error.
-    expect(within(list).getByText("error")).toBeInTheDocument();
-    expect(within(list).getByText("Could not read voxel spacing.")).toBeInTheDocument();
+    expect(within(table).getByText("error")).toBeInTheDocument();
+    expect(within(table).getByText("Could not read voxel spacing.")).toBeInTheDocument();
   });
 
   it("notes when the active report has no scan rows", () => {
