@@ -19,8 +19,8 @@
   --muted-2: #777;
   --line: rgba(255, 255, 255, 0.11);
   --line-strong: rgba(255, 255, 255, 0.22);
-  --blue: #4864f2;
-  --blue-soft: rgba(72, 100, 242, 0.24);
+  --blue: #2472ec;
+  --blue-soft: rgba(36, 114, 236, 0.24);
   --cyan: #72d6ff;
   --danger: #ff8075;
   --warn: #d69d4d;
@@ -76,7 +76,7 @@ button:disabled {
   --muted-2: #858d99;
   --line: rgba(24, 32, 44, 0.13);
   --line-strong: rgba(24, 32, 44, 0.24);
-  --blue-soft: rgba(72, 100, 242, 0.16);
+  --blue-soft: rgba(36, 114, 236, 0.16);
   --shadow: 0 18px 52px rgba(28, 37, 52, 0.18);
 }
 
@@ -174,7 +174,7 @@ button:disabled {
 
 .primary-button {
   background: var(--blue);
-  border-color: #697cff;
+  border-color: #4d8bf5;
   color: #fff;
   font-weight: 760;
 }
