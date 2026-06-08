@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { Button, Label, ListBox, ListBoxItem, Popover, Select, SelectValue } from "react-aria-components";
-import { Box, CheckCircle2, FileText, FolderOpen, ImageIcon, Layers, Play, Square, Stethoscope, X } from "lucide-react";
+import { Box, CheckCircle2, ChevronDown, FileText, FolderOpen, ImageIcon, Layers, Play, Square, Stethoscope, X } from "lucide-react";
 import type { RuntimeReadiness, ValidateOutputResponse, ValidateScansResponse, ViewerMode } from "../types";
 
 const VIEWER_MODES: { value: ViewerMode; label: string; icon: typeof Layers; needsVolume: boolean }[] = [
@@ -75,6 +76,7 @@ export function SetupPanel({
   viewerMode,
   onViewerModeChange,
 }: SetupPanelProps) {
+  const [statusOpen, setStatusOpen] = useState(false);
   const hasScans = scanPaths.length > 0;
   const hasOutputDir = outputDir.trim().length > 0;
   const hasValidatedScans = Boolean(validation?.exists && validation.readableCount > 0 && validation.problems.length === 0);
@@ -151,47 +153,64 @@ export function SetupPanel({
             {isRunning ? "Running" : "Run analysis"}
           </Button>
         </div>
-        <div className={`runtime-ready-row ${runtimeReadiness.state}`}>
-          <span className="runtime-dot" aria-hidden="true" />
-          <span className="runtime-copy" title={runtimeReadiness.detail}>
-            <strong>{runtimeReadiness.label}</strong>
-            <span>{runtimeReadiness.detail}</span>
-          </span>
-          <Button className="runtime-check-button" aria-label={runtimeButtonLabel} isDisabled={isRunning || isCheckingRuntime} onPress={onCheckRuntime}>
-            <Stethoscope size={14} />
-          </Button>
-        </div>
-      </div>
-
-      {validation ? (
-        <div className="selection-summary">
-          <div>
-            <strong>{validation.scanCount} scan file(s)</strong>, <strong>{validation.readableCount} readable</strong>
+        <div className={`system-status ${runtimeReadiness.state} ${statusOpen ? "open" : ""}`}>
+          <div className="system-status-row">
+            <button
+              type="button"
+              className="system-status-toggle"
+              aria-expanded={statusOpen}
+              aria-controls="system-status-details"
+              aria-label={`System status: ${runtimeReadiness.label}. ${statusOpen ? "Hide" : "Show"} scan and results folder details.`}
+              onClick={() => setStatusOpen((open) => !open)}
+            >
+              <span className="runtime-dot" aria-hidden="true" />
+              <span className="runtime-copy" title={runtimeReadiness.detail}>
+                <strong>{runtimeReadiness.label}</strong>
+                <span>{runtimeReadiness.detail}</span>
+              </span>
+              <ChevronDown className="system-status-chevron" size={14} aria-hidden="true" />
+            </button>
+            <Button className="runtime-check-button" aria-label={runtimeButtonLabel} isDisabled={isRunning || isCheckingRuntime} onPress={onCheckRuntime}>
+              <Stethoscope size={14} />
+            </Button>
           </div>
-          {validation.scanCount === 0 && validation.problems.length === 0 ? <span className="warning">No scans selected</span> : null}
-          {validation.problems.length > 0 ? <span className="danger">{validation.problems.length} problem(s)</span> : null}
-          {validation.problems[0] ? <span className="danger">{validation.problems[0].name}: {validation.problems[0].error}</span> : null}
-          {ready ? (
-            <span className="ok">
-              <CheckCircle2 size={14} /> Ready
-            </span>
+          {statusOpen ? (
+            <div id="system-status-details" className="system-status-details">
+              {validation ? (
+                <div className="selection-summary">
+                  <div>
+                    <strong>{validation.scanCount} scan file(s)</strong>, <strong>{validation.readableCount} readable</strong>
+                  </div>
+                  {validation.scanCount === 0 && validation.problems.length === 0 ? <span className="warning">No scans selected</span> : null}
+                  {validation.problems.length > 0 ? <span className="danger">{validation.problems.length} problem(s)</span> : null}
+                  {validation.problems[0] ? <span className="danger">{validation.problems[0].name}: {validation.problems[0].error}</span> : null}
+                  {ready ? (
+                    <span className="ok">
+                      <CheckCircle2 size={14} /> Ready
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
+              {outputValidation ? (
+                <div className="selection-summary">
+                  <div>
+                    <strong>Results folder</strong>
+                  </div>
+                  <span className={outputValidation.status === "ok" ? "ok" : outputValidation.status === "warn" ? "warning" : "danger"}>
+                    {outputValidation.status === "ok" ? <CheckCircle2 size={14} /> : null}
+                    {outputValidation.status === "ok" ? outputReadyMessage : "Not ready"}
+                  </span>
+                  <span>{outputValidation.message}</span>
+                  {outputValidation.path ? <span className="muted-path">{outputValidation.path}</span> : null}
+                </div>
+              ) : null}
+              {!validation && !outputValidation ? (
+                <span className="status-empty-note">Select scans and a results folder to check their status.</span>
+              ) : null}
+            </div>
           ) : null}
         </div>
-      ) : null}
-
-      {outputValidation ? (
-        <div className="selection-summary">
-          <div>
-            <strong>Results folder</strong>
-          </div>
-          <span className={outputValidation.status === "ok" ? "ok" : outputValidation.status === "warn" ? "warning" : "danger"}>
-            {outputValidation.status === "ok" ? <CheckCircle2 size={14} /> : null}
-            {outputValidation.status === "ok" ? outputReadyMessage : "Not ready"}
-          </span>
-          <span>{outputValidation.message}</span>
-          {outputValidation.path ? <span className="muted-path">{outputValidation.path}</span> : null}
-        </div>
-      ) : null}
+      </div>
 
       <div className="panel-divider" />
 

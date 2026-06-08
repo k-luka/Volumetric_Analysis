@@ -169,6 +169,7 @@ describe("SetupPanel", () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole("button", { name: /scan and results folder details/i }));
     expect(screen.getByText(/1 scan file/i)).toBeInTheDocument();
     expect(screen.getAllByText("Ready")).toHaveLength(2);
     expect(screen.getByRole("button", { name: /run analysis/i })).toBeEnabled();
@@ -182,6 +183,7 @@ describe("SetupPanel", () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole("button", { name: /scan and results folder details/i }));
     expect(screen.getByText(/No scans selected/i)).toBeInTheDocument();
     expect(screen.queryByText("Ready")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /run analysis/i })).toBeDisabled();
@@ -201,6 +203,7 @@ describe("SetupPanel", () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole("button", { name: /scan and results folder details/i }));
     expect(screen.getByText(/Could not read voxel spacing/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /run analysis/i })).toBeDisabled();
   });
@@ -223,9 +226,43 @@ describe("SetupPanel", () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole("button", { name: /scan and results folder details/i }));
     expect(screen.getByText("Not ready")).toBeInTheDocument();
     expect(screen.getByText(/not a folder/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /run analysis/i })).toBeDisabled();
+  });
+
+  it("collapses the scan/results-folder status behind a disclosure", () => {
+    render(
+      <SetupPanel
+        {...baseProps}
+        validation={{ exists: true, scanCount: 1, readableCount: 1, scans: [], problems: [] }}
+        outputValidation={{
+          path: "outputs/ui_demo",
+          exists: true,
+          isDirectory: true,
+          parentExists: true,
+          canCreate: false,
+          canWrite: true,
+          status: "ok",
+          message: "Results folder is writable.",
+        }}
+      />,
+    );
+
+    // The runtime label stays visible in the header; the per-folder detail is
+    // hidden until the disclosure is opened.
+    expect(screen.getByText("System not checked")).toBeInTheDocument();
+    const toggle = screen.getByRole("button", { name: /scan and results folder details/i });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText(/1 scan file/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Results folder is writable/i)).not.toBeInTheDocument();
+
+    fireEvent.click(toggle);
+
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText(/1 scan file/i)).toBeInTheDocument();
+    expect(screen.getByText(/Results folder is writable/i)).toBeInTheDocument();
   });
 
   it("shows empty-state hints before a selection is made", () => {

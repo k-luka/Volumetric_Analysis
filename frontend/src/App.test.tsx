@@ -151,6 +151,7 @@ describe("App run flow", () => {
 
     // Auto-validation runs with no button and proactively blocks an unrunnable selection.
     await waitFor(() => expect(screen.getByRole("button", { name: /run analysis/i })).toBeDisabled());
+    fireEvent.click(screen.getByRole("button", { name: /scan and results folder details/i }));
     expect(screen.getByText(/No scans selected/i)).toBeInTheDocument();
     expect(getChecks).not.toHaveBeenCalled();
     expect(startRun).not.toHaveBeenCalled();
