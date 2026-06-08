@@ -1,7 +1,6 @@
 # Demo Guide
 
 Single source of truth for showing the alpha to a doctor / research stakeholder.
-(Merged from the former `PRESENTATION_NEXT_STEPS.md` and `DOCTOR_DEMO_SCRIPT.md`.)
 
 ## Goal
 
@@ -20,7 +19,7 @@ Excel volume report come out.
 3. Confirm the UI defaults to `data/tutorial` and `outputs/ui_demo` when the tutorial scan is available.
 4. Rerun the tutorial scan with the current config if there is enough time.
 5. If allowed, run 1-3 representative de-identified study scans before the meeting.
-6. Bring the Excel report plus both QC PNGs.
+6. Bring the Excel report plus the color QC PNG.
 7. Bring `docs/CURRENT_SPEC.md` and this guide as meeting notes.
 8. Prepare a short methods paragraph that cites FastSurfer/FastSurferVINN.
 
@@ -32,16 +31,16 @@ Excel volume report come out.
 4. Keep `outputs/ui_demo` as the output folder, or select a results folder with the folder icon.
 5. Keep **Compute device** on `auto` unless you need to force `cpu`, `mps`, or `cuda`.
 6. Click **Run analysis** if there is enough meeting time. `Check folders` is optional preflight.
-7. Review the Excel row and the color/binary QC images in the UI after completion.
-8. If the live run is too slow, manually load a saved report from the Reports panel.
+7. Review the Excel row and the color QC image in the UI after completion.
+8. Open the interactive segmentation viewer (NiiVue) to show the FastSurfer labels overlaid on the MRI, switching between **Montage**, **Slices**, and **3D** modes and scrubbing the per-plane slice sliders.
+9. If the live run is too slow, manually load a saved report from the Reports panel.
 
 ## Demo Packet
 
 - One input filename.
 - One Excel output row.
 - One multi-color QC image.
-- One binary QC image.
-- Local UI showing the report and QC images.
+- Local UI showing the report, the color QC image, and the interactive segmentation viewer.
 - Current assumptions and questions for the doctor.
 - Current limitations: alpha workflow, NIfTI-only input, one example QC output, no clinical interpretation yet.
 

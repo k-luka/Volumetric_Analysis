@@ -87,6 +87,7 @@ vi.mock("@niivue/niivue", () => {
 
 // Imported after the mock is registered so the component picks up FakeNiivue.
 import VolumeViewer from "./VolumeViewer";
+import { SEG_LABEL_VOLUME_NAME } from "../lib/segLut";
 
 // Build a loadVolumes mock whose promise stays pending until the returned
 // resolve() is called, letting tests observe the in-flight loading state.
@@ -146,9 +147,10 @@ describe("VolumeViewer", () => {
     // The seg `name` must contain a NiiVue `mgLabelFiles` entry so readMgh sets
     // intent_code=1002 and the ATLAS (integer per-label) shader is selected; a
     // name like "seg.mgz" would fall back to the scalar shader and interpolate
-    // colors across label boundaries. "aparc.DKTatlas+aseg.deep.mgz" contains
-    // the recognized entry "aparc.DKTatlas+aseg.deep.mg".
-    expect(loaded[1].name).toContain("aparc.DKTatlas+aseg.deep.mg");
+    // colors across label boundaries. Assert against the single source of truth
+    // and that it still carries the recognized substring.
+    expect(loaded[1].name).toBe(SEG_LABEL_VOLUME_NAME);
+    expect(SEG_LABEL_VOLUME_NAME).toContain("aparc.DKTatlas+aseg.deep.mg");
   });
 
   it("recolors the seg overlay via colormapLabel after load when a segLut is supplied", async () => {
@@ -380,7 +382,7 @@ describe("VolumeViewer", () => {
   });
 
   it("renders one slice slider per plane and scrubs the crosshair on input", async () => {
-    const { getByRole, getAllByRole } = render(
+    const { getByRole, getAllByRole, getByText } = render(
       <VolumeViewer anatUrl="/api/anat.mgz" segUrl={null} mode="slices" />,
     );
 
@@ -388,15 +390,22 @@ describe("VolumeViewer", () => {
 
     // Three labeled scrubbers, one per plane, replace the crosshair navigation.
     await waitFor(() => expect(getAllByRole("slider")).toHaveLength(3));
-    expect(getByRole("slider", { name: "Axial slice" })).toBeInTheDocument();
+    const axial = getByRole("slider", { name: "Axial slice" });
+    expect(axial).toBeInTheDocument();
     expect(getByRole("slider", { name: "Coronal slice" })).toBeInTheDocument();
     expect(getByRole("slider", { name: "Sagittal slice" })).toBeInTheDocument();
+    // The slider works in natural 1..256 slice numbers (not 0..1 fractions) and
+    // exposes a screen-reader value text.
+    expect(axial).toHaveAttribute("max", "256");
+    expect(axial).toHaveAttribute("aria-valuetext", "Slice 129 of 256");
 
-    // Moving the Axial slider sets the S (index 2) component of the fractional
-    // crosshair and repaints, without reloading volumes.
+    // Moving the Axial slider to slice 1 sets the S (index 2) component of the
+    // fractional crosshair to 0, repaints, and updates the visible index —
+    // without reloading volumes.
     drawScene.mockClear();
-    fireEvent.change(getByRole("slider", { name: "Axial slice" }), { target: { value: "0.25" } });
-    expect(lastInstance?.scene.crosshairPos[2]).toBeCloseTo(0.25);
+    fireEvent.change(axial, { target: { value: "1" } });
+    expect(lastInstance?.scene.crosshairPos[2]).toBe(0);
+    expect(getByText("1 / 256")).toBeInTheDocument();
     expect(drawScene).toHaveBeenCalled();
     expect(loadVolumes).toHaveBeenCalledTimes(1);
   });
@@ -419,10 +428,11 @@ describe("VolumeViewer", () => {
     await waitFor(() => expect(lastInstance?.onLocationChange).toBeTypeOf("function"));
 
     // NiiVue reports a click as a fractional location; the Sagittal (R, index 0)
-    // slider should follow it without any slider interaction.
+    // slider should follow it without any slider interaction. frac 0.8 over 256
+    // slices => round(0.8 * 255) + 1 = slice 205.
     act(() => {
       lastInstance?.onLocationChange?.({ frac: [0.8, 0.4, 0.6] });
     });
-    expect((getByRole("slider", { name: "Sagittal slice" }) as HTMLInputElement).value).toBe("0.8");
+    expect((getByRole("slider", { name: "Sagittal slice" }) as HTMLInputElement).value).toBe("205");
   });
 });

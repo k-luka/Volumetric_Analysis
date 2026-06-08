@@ -19,6 +19,10 @@ The local UI MVP is FastAPI plus React. Streamlit is no longer the target UI. Th
 
 ## MVP Progress
 
+- Completed: interactive segmentation viewer and per-subject QC.
+  - The frontend ships an interactive NiiVue 2D/3D viewer (`frontend/src/components/VolumeViewer.tsx` + `frontend/src/lib/segLut.ts`) that overlays FastSurfer labels on the MRI with Montage/Slices/3D modes and per-plane slice sliders.
+  - The runner now writes a per-subject color QC montage at `qc/<subject>_color.png` (plus a back-compat `example_qc_color.png`); there is no binary/outline QC image.
+  - New backend routes back the viewer: `GET /api/reports/{id}/qc/{subject}`, `GET /api/reports/{id}/volume/{subject}/{kind}` (`anat`/`seg` `.mgz`), and `GET /api/atlas/regions` (region catalog from `volumetric_analysis/structures.py`).
 - Completed: React/FastAPI rebuild scaffold.
 - Completed: Photoshop-style shell baseline.
 - Completed: Removed fake/decorative controls from the first UI pass.
@@ -79,7 +83,7 @@ The local UI MVP is FastAPI plus React. Streamlit is no longer the target UI. Th
   - `/api/checks` passes for Python, dependencies, and FastSurfer, with only the expected Apple MPS fallback warning.
   - Ran the tutorial scan from the React UI: `data/tutorial` -> `outputs/ui_demo`.
   - New report: `outputs/ui_demo/reports/brain_volumes_20260604_111644.xlsx`.
-  - Verified Excel, PDF, color QC, and outline QC artifact routes return HTTP 200.
+  - Verified Excel, PDF, and color QC artifact routes return HTTP 200.
 - Completed: macOS folder picker crash fix.
   - macOS directory selection now uses `osascript` first and never instantiates Tk from a FastAPI worker thread.
   - Tk remains only as a non-macOS fallback.
@@ -131,9 +135,9 @@ The local UI MVP is FastAPI plus React. Streamlit is no longer the target UI. Th
   - Added `docs/ARCHITECTURE.md` as a quick system map for future coding agents.
   - Linked the architecture map from `docs/README.md`.
 - Completed: 2026-06-06 desktop QC pass.
-  - Frontend tests passed: 32 tests.
+  - Frontend tests passed (`npm --prefix frontend test`).
   - Frontend production build passed.
-  - Backend tests passed: 32 tests.
+  - Backend tests passed (`python -m unittest discover -s tests -p "test_*.py"`).
   - Launched the production app on `http://127.0.0.1:8777` through `./tools/launch_ui.sh --port 8777`.
   - Confirmed blank startup results before loading/running a report.
   - Created a fresh output folder through the UI: `outputs/qc_smoke_20260606_1229`.
@@ -142,8 +146,8 @@ The local UI MVP is FastAPI plus React. Streamlit is no longer the target UI. Th
   - Ran the tutorial scan from the React UI.
   - New report: `outputs/qc_smoke_20260606_1229/reports/brain_volumes_20260606_122725.xlsx`.
   - Server logged 1 successful scan in 114 seconds, volume `1,246.4 mL`.
-  - Verified report detail, Excel, PDF, color QC, and binary QC routes returned HTTP 200.
-  - Verified QC inspection renders both images and artifact buttons are marked ready.
+  - Verified report detail, Excel, PDF, and color QC routes returned HTTP 200.
+  - Verified QC inspection renders the color montage and artifact buttons are marked ready.
   - Click-tested theme toggle, report refresh/load, recursive toggle, and compute-device menu.
   - Saved desktop screenshot: `outputs/qc_smoke_20260606_1229/ui_qc_desktop.png`.
 - Completed: 2026-06-06 Chrome QC pass.
@@ -158,8 +162,8 @@ The local UI MVP is FastAPI plus React. Streamlit is no longer the target UI. Th
   - Server logged 1 successful scan in 88 seconds, volume `1,246.4 mL`.
   - Verified progress moved during segmentation and reached 100% after completion.
   - Verified loaded report metadata, scan row, structure table, and QC inspection view.
-  - Verified Excel, PDF, color QC, and binary QC routes returned HTTP 200.
-  - Verified `Open color QC` and `Open outline QC` opened image tabs in Chrome.
+  - Verified Excel, PDF, and color QC routes returned HTTP 200.
+  - Verified `Open color QC` opened an image tab in Chrome.
   - Click-tested theme toggle, report refresh/load, recursive toggle, and compute-device menu.
   - Restarted the server and confirmed startup was blank again.
   - After restart, loaded the saved report from the Reports panel and verified QC images still rendered.
@@ -173,21 +177,21 @@ The local UI MVP is FastAPI plus React. Streamlit is no longer the target UI. Th
   - Subagent review found one accepted usability issue: the guide needed to say commands are run from the repo root.
   - Subagent review also exposed a stale `docs/ARCHITECTURE.md` PDF output note; the architecture doc was corrected to describe PDF generation as an on-demand download route.
 - Completed: final automated acceptance slice after README update.
-  - Frontend tests passed: 32 tests.
+  - Frontend tests passed (`npm --prefix frontend test`).
   - Frontend production build passed.
-  - Backend tests passed: 32 tests.
+  - Backend tests passed (`python -m unittest discover -s tests -p "test_*.py"`).
   - Launched the production app on `http://127.0.0.1:8779` through `./tools/launch_ui.sh --port 8779`.
   - Confirmed blank startup results and no Chrome console warnings/errors.
   - Loaded saved report `outputs/chrome_qc_20260606_1240/reports/brain_volumes_20260606_124002.xlsx` from the Reports panel.
-  - Verified scan row, structure table, and QC inspection images rendered.
-  - Verified report detail, Excel, PDF, color QC, and binary QC routes returned HTTP 200.
+  - Verified scan row, structure table, and QC inspection image rendered.
+  - Verified report detail, Excel, PDF, and color QC routes returned HTTP 200.
   - Saved screenshot: `outputs/final_acceptance_20260606/ui_final_fresh_launch_qc.png`.
 - Completed: narrow viewport acceptance check.
   - Launched the production app on `http://127.0.0.1:8781`.
   - Used a fixed-width 390px iframe harness to render the app in a narrow viewport because the available Chrome automation surface cannot resize the real browser window.
   - Verified narrow startup controls were present: input folder, results folder, `Check folders`, `Run analysis`, progress bar, and blank results state.
   - Loaded saved report `outputs/chrome_qc_20260606_1240/reports/brain_volumes_20260606_124002.xlsx` inside the narrow viewport.
-  - Verified saved-report controls, `Download Excel`, `Download PDF`, structure/QC segmented switch, color QC, and outline QC rendered in the narrow viewport.
+  - Verified saved-report controls, `Download Excel`, `Download PDF`, structure/QC segmented switch, and color QC rendered in the narrow viewport.
   - Chrome console logs had no warnings/errors during the narrow check.
   - Saved screenshots:
     - `outputs/final_acceptance_20260606/ui_narrow_same_origin_390.png`
@@ -203,7 +207,7 @@ The local UI MVP is FastAPI plus React. Streamlit is no longer the target UI. Th
 ```bash
 npm --prefix frontend test
 npm --prefix frontend run build
-conda run -n vol-analysis python -m unittest tests/test_check_env.py tests/test_run.py tests/test_web.py
+conda run -n vol-analysis python -m unittest discover -s tests -p "test_*.py"
 ```
 
 ## Known Environment Note

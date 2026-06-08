@@ -575,6 +575,22 @@ class WebApiTest(unittest.TestCase):
                 handler(identifier="anything", subject=subject, kind="anat")
             self.assertEqual(ctx.exception.status_code, 400)
 
+    def test_qc_image_route_handler_rejects_traversal_subjects_directly(self) -> None:
+        # The QC-image route interpolates {subject} into a filesystem path the
+        # same way the volume route does, so it must reject traversal subjects
+        # before report resolution. Call the handler directly (the test client
+        # normalizes "../" away) to exercise the guard.
+        app = web.create_app()
+        handler = next(
+            route.endpoint
+            for route in app.routes
+            if getattr(route, "path", None) == "/api/reports/{identifier}/qc/{subject}"
+        )
+        for subject in ("..", "a/b", "a..b", "..\\x"):
+            with self.assertRaises(web.HTTPException) as ctx:
+                handler(identifier="anything", subject=subject)
+            self.assertEqual(ctx.exception.status_code, 400)
+
     def test_atlas_regions_endpoint_returns_catalog(self) -> None:
         response = self.client.get("/api/atlas/regions")
 

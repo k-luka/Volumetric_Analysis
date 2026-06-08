@@ -10,5 +10,7 @@ data/
 .streamlit/
 *.sif
 *.tar
+node_modules/
 frontend/node_modules/
 frontend/dist/
+.vite/

@@ -128,7 +128,9 @@ external items (UFRC approval) start early and run in parallel.
   installable CLI with the interactive wizard. Purpose: prove the pipeline end to
   end and **lock the science with the doctor** (volume definition, regions, report
   format — the real bottleneck; see `docs/CURRENT_SPEC.md`). Runs great on Apple/MPS
-  for demos.
+  for demos. In practice the shipped MVP deliverable today is the local React/FastAPI
+  web UI (`./tools/launch_ui.sh`) over that same engine; the CLI and wizard remain as
+  scripted/terminal entry points.
 - **Phase 1b — Email UFRC (now, in parallel).** Ask whether the OOD app can be
   enabled. Long latency, near-zero cost to start; do not wait for Phase 1 to
   finish.

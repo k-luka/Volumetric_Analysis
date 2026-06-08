@@ -15,7 +15,7 @@ The alpha does not train a model. It wraps FastSurfer segmentation-only inferenc
 5. Count all nonzero segmentation voxels.
 6. Multiply by segmentation voxel spacing.
 7. Write a unique Excel report.
-8. Save one example segmentation plus color and binary QC PNGs.
+8. Save one example segmentation plus a per-subject color QC PNG.
 
 ## Model And Method
 
@@ -53,7 +53,6 @@ Parameter counts from the downloaded FastSurfer checkpoints:
 - `reports/brain_volumes_<timestamp>.xlsx`
 - `example_segmentation.mgz`
 - `example_qc_color.png`
-- `example_qc_binary.png`
 - `runs/<timestamp>/fastsurfer/...`
 
 Excel columns:

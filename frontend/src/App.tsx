@@ -33,6 +33,11 @@ const initialRuntimeReadiness: RuntimeReadiness = {
   checkedAt: null,
 };
 
+// EventSource.readyState value for a connection the browser has permanently
+// given up on. Hardcoded because the EventSource global isn't present under
+// jsdom (tests mock the stream): 0 CONNECTING, 1 OPEN, 2 CLOSED.
+const EVENT_SOURCE_CLOSED = 2;
+
 function messageFromPayload(payload: Record<string, unknown>): string | null {
   const value = payload.message;
   return typeof value === "string" && value.trim() ? value : null;
@@ -618,7 +623,40 @@ export default function App() {
         setActiveRunId(null);
       });
       source.addEventListener("error", async (event) => {
-        const payload = parseEvent(event as MessageEvent<string>);
+        const messageEvent = event as MessageEvent<string>;
+        const hasServerPayload = typeof messageEvent.data === "string" && messageEvent.data.length > 0;
+
+        // "error" fires for two very different reasons:
+        //  1. The backend's own `error` run event — a genuine failure that
+        //     carries a JSON payload.
+        //  2. A native EventSource connection drop — no payload; the browser is
+        //     already auto-reconnecting. Tearing a live run down on a transient
+        //     blip would abandon a run that is still going on the server, so for
+        //     a payload-less error we only finalize when the backend reports the
+        //     run actually ended, or the browser has given up (readyState
+        //     CLOSED). Otherwise we leave the stream to reconnect.
+        if (!hasServerPayload) {
+          const status = await getRun(runId).catch(() => null);
+          const stillActive = status?.state === "running" || status?.state === "queued";
+          if (stillActive && source.readyState !== EVENT_SOURCE_CLOSED) {
+            return;
+          }
+          source.close();
+          const message = status?.error ?? "Run event stream disconnected.";
+          setRunProgress(progressFromEvent(status?.state === "cancelled" ? "cancelled" : "error", { message }));
+          setNotice(message);
+          appendLog(setLogs, message);
+          setRunStatus(status);
+          if (status?.logs.length) {
+            setLogs(status.logs);
+          }
+          setIsRunning(false);
+          setIsCancelling(false);
+          setActiveRunId(null);
+          return;
+        }
+
+        const payload = parseEvent(messageEvent);
         const eventMessage = messageFromPayload(payload);
         source.close();
         const status = await getRun(runId).catch(() => null);

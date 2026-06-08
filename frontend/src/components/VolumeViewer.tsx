@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { MULTIPLANAR_TYPE, Niivue, SHOW_RENDER } from "@niivue/niivue";
-import { SEG_MAX_LABEL } from "../lib/segLut";
+import { SEG_LABEL_VOLUME_NAME, SEG_MAX_LABEL } from "../lib/segLut";
 
 type VolumeViewerProps = {
   anatUrl: string;
@@ -152,7 +152,7 @@ export default function VolumeViewer({ anatUrl, segUrl, mode, segLut }: VolumeVi
             ? [
                 {
                   url: segUrl,
-                  name: "aparc.DKTatlas+aseg.deep.mgz",
+                  name: SEG_LABEL_VOLUME_NAME,
                   opacity: 1,
                 },
               ]
@@ -257,7 +257,10 @@ export default function VolumeViewer({ anatUrl, segUrl, mode, segLut }: VolumeVi
           {SLICE_AXES.map(({ label, axis }) => {
             const count = sliceCounts[axis];
             const frac = cross[axis];
-            const index = Math.min(count, Math.max(1, Math.round(frac * (count - 1)) + 1));
+            // The slider speaks in natural slice numbers (1..count), not the
+            // 0..1 fractional crosshair, so the control is exact and assistive
+            // tech announces "Slice 87 of 256" instead of "0.34".
+            const index = count > 1 ? Math.min(count, Math.max(1, Math.round(frac * (count - 1)) + 1)) : 1;
             return (
               <div className="slice-slider" key={label}>
                 <div className="slice-slider-head">
@@ -268,12 +271,16 @@ export default function VolumeViewer({ anatUrl, segUrl, mode, segLut }: VolumeVi
                 </div>
                 <input
                   type="range"
-                  min={0}
-                  max={1}
-                  step={1 / Math.max(1, count - 1)}
-                  value={frac}
+                  min={1}
+                  max={count}
+                  step={1}
+                  value={index}
                   aria-label={`${label} slice`}
-                  onChange={(event) => moveAxis(axis, Number(event.target.value))}
+                  aria-valuetext={`Slice ${index} of ${count}`}
+                  onChange={(event) => {
+                    const nextIndex = Number(event.target.value);
+                    moveAxis(axis, count > 1 ? (nextIndex - 1) / (count - 1) : 0.5);
+                  }}
                 />
               </div>
             );

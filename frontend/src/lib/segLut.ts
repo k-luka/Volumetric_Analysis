@@ -22,6 +22,16 @@ import type { AtlasRegion } from "../types";
 // at 2035; see structures.py). The LUT must cover every index up to here.
 export const SEG_MAX_LABEL = 2035;
 
+// The NAME the seg volume MUST be loaded under in NiiVue. This is load-bearing,
+// not cosmetic: NiiVue's MGZ reader only sets intent_code=1002 (selecting the
+// integer per-label ATLAS shader, which renders crisp masks) when the volume
+// name contains an entry from its hardcoded `mgLabelFiles` list. This string
+// contains the entry "aparc.DKTatlas+aseg.deep.mg"; a generic name like
+// "seg.mgz" would fall back to the scalar shader and bleed colors across label
+// boundaries. See VolumeViewer for the full rationale. Centralized here so the
+// component and its tests reference one source of truth.
+export const SEG_LABEL_VOLUME_NAME = "aparc.DKTatlas+aseg.deep.mgz";
+
 // Alpha for the uniform base mask vs. an explicitly selected region.
 //
 // NOTE: NiiVue's atlas fragment shader (scalar2color, fragOrientShaderAtlas)

@@ -36,6 +36,10 @@ const defaults = {
 class FakeRunEventSource {
   listeners = new Map<string, Array<(event: MessageEvent<string>) => void>>();
   closed = false;
+  // Mirrors EventSource.readyState: 0 CONNECTING, 1 OPEN, 2 CLOSED. A native
+  // connection blip leaves the browser CONNECTING (auto-reconnecting); a
+  // permanent failure transitions it to CLOSED.
+  readyState = 1;
 
   addEventListener(name: string, listener: (event: MessageEvent<string>) => void) {
     this.listeners.set(name, [...(this.listeners.get(name) ?? []), listener]);
@@ -271,5 +275,45 @@ describe("App run flow", () => {
     expect(screen.getByText("Run started.")).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("button", { name: /run analysis/i })).toBeEnabled());
     expect(source.closed).toBe(true);
+  });
+
+  it("keeps a live run alive when the stream drops transiently and reconnects", async () => {
+    const source = new FakeRunEventSource();
+    vi.mocked(getChecks).mockResolvedValue([]);
+    vi.mocked(startRun).mockResolvedValue("run-3");
+    vi.mocked(createRunEventSource).mockReturnValue(source as unknown as EventSource);
+    // The backend still reports the run as in-flight while the browser briefly
+    // loses the SSE connection.
+    vi.mocked(getRun).mockResolvedValue({
+      runId: "run-3",
+      state: "running",
+      inputDir: "/data/scans",
+      outputDir: "/data/results",
+      recursive: false,
+      device: "cpu",
+      latestEvent: { event: "scan_start", payload: { message: "[1/1] scan.nii - segmenting..." } },
+      logs: ["Run started.", "[1/1] scan.nii - segmenting..."],
+      reportId: null,
+      artifacts: { xlsx: false, pdf: false, color: false, binary: false },
+      error: null,
+    });
+
+    await renderWithScans();
+    fireEvent.click(screen.getByRole("button", { name: /run analysis/i }));
+    await waitFor(() => expect(startRun).toHaveBeenCalledTimes(1));
+
+    source.emit("start", { message: "Run started." });
+    await waitFor(() => expect(screen.getByRole("button", { name: /^stop$/i })).toBeInTheDocument());
+
+    // Native connection blip: no payload, browser still auto-reconnecting.
+    source.readyState = 0; // CONNECTING
+    source.emitRaw("error");
+
+    // The run is NOT torn down: the stream stays open, Stop is still offered,
+    // and no "disconnected" failure notice is shown.
+    await waitFor(() => expect(getRun).toHaveBeenCalledWith("run-3"));
+    expect(source.closed).toBe(false);
+    expect(screen.getByRole("button", { name: /^stop$/i })).toBeInTheDocument();
+    expect(screen.queryByText("Run event stream disconnected.")).not.toBeInTheDocument();
   });
 });

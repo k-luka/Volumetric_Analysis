@@ -278,6 +278,16 @@ def report_path_from_id(identifier: str) -> Path:
     return path
 
 
+def safe_subject(subject: str) -> str:
+    """Reject subject identifiers that could traverse outside the report's
+    output directory. Subjects are interpolated straight into filesystem paths
+    by the QC/volume routes, so a value containing a path separator or ``..``
+    must never be accepted."""
+    if "/" in subject or "\\" in subject or ".." in subject:
+        raise HTTPException(status_code=400, detail="Invalid subject")
+    return subject
+
+
 def is_under_outputs(path: Path) -> bool:
     outputs_root = (REPO_ROOT / "outputs").resolve()
     resolved = path.expanduser().resolve()
@@ -1141,6 +1151,7 @@ def create_app() -> FastAPI:
 
     @app.get("/api/reports/{identifier}/qc/{subject}")
     def report_qc_image(identifier: str, subject: str) -> FileResponse:
+        subject = safe_subject(subject)
         path = report_path_from_id(identifier)
         image = path.parent.parent / "qc" / f"{subject}_color.png"
         if not image.exists():
@@ -1151,8 +1162,7 @@ def create_app() -> FastAPI:
     def report_volume(identifier: str, subject: str, kind: str) -> FileResponse:
         if kind not in {"anat", "seg"}:
             raise HTTPException(status_code=404, detail="Unknown volume kind")
-        if "/" in subject or "\\" in subject or ".." in subject:
-            raise HTTPException(status_code=400, detail="Invalid subject")
+        subject = safe_subject(subject)
         path = report_path_from_id(identifier)
         output_dir = path.parent.parent
         run_id = run_id_from_report(path)

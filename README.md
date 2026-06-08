@@ -106,14 +106,16 @@ The center Results area shows:
 - subject and report metadata
 - scan-level volume rows
 - a **Structures** view with detailed structure volumes
-- a **QC inspection** view with color and outline QC images
+- a **QC inspection** view with the per-subject color QC montage
+- an interactive segmentation viewer (built on NiiVue) that overlays the
+  FastSurfer labels on the MRI, with **Montage**, **Slices**, and **3D** modes
+  and per-plane slice sliders
 
 The right Reports panel shows saved reports and artifact actions:
 
 - **Download Excel**
 - **Download PDF**
 - **Open color QC**
-- **Open outline QC**
 
 Saved reports are listed in the Reports panel, but the app starts blank. A report loads only after a run completes or after you explicitly load one from the Reports panel.
 
@@ -123,10 +125,10 @@ For each selected results folder, the app writes:
 
 ```text
 reports/brain_volumes_*.xlsx
-runs/<subject>/
+runs/<run_id>/fastsurfer/<subject>/mri/...
 example_segmentation.mgz
 example_qc_color.png
-example_qc_binary.png
+qc/<subject>_color.png
 ```
 
 The Excel file is the primary analysis output. The PDF is generated when you click **Download PDF** and the segmentation artifact exists. The QC images are supporting review artifacts.
@@ -198,6 +200,26 @@ python -m volumetric_analysis.run \
   output_dir=/path/to/results \
   fastsurfer.home=/path/to/FastSurfer \
   fastsurfer.install_if_missing=false
+```
+
+## Development
+
+Backend tests (run through the `vol-analysis` conda environment):
+
+```bash
+python -m unittest discover -s tests -p "test_*.py"
+```
+
+Frontend tests (Vitest):
+
+```bash
+npm --prefix frontend test
+```
+
+Frontend dev server (Vite, runs against the FastAPI backend):
+
+```bash
+npm --prefix frontend run dev
 ```
 
 ## Project Docs

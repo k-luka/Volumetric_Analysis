@@ -35,7 +35,6 @@ account/partition, and one real GPU submission have succeeded.
 - `reports/brain_volumes_<timestamp>.xlsx`
 - `example_segmentation.mgz`
 - `example_qc_color.png`
-- `example_qc_binary.png`
 - `runs/<timestamp>/fastsurfer/...`
 
 ## Deployment Pieces

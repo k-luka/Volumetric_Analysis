@@ -8,6 +8,8 @@ The starting point was `Tutorial_FastSurferCNN_QuickSeg.ipynb`, a Colab-style Fa
 
 ## Current Alpha Goal
 
+Note: the shipped alpha today is the local React/FastAPI web UI (`./tools/launch_ui.sh`); the original command-line tool still exists as the wizard and scripted CLI behind the same analysis engine.
+
 Build a Python command-line tool that:
 
 - Accepts `.nii` and `.nii.gz` scans.
@@ -15,7 +17,7 @@ Build a Python command-line tool that:
 - Runs FastSurferVINN segmentation.
 - Computes alpha whole-brain volume as all non-background segmentation labels.
 - Writes a unique Excel report per run.
-- Saves one example segmentation and two QC slice montages for visual inspection.
+- Saves one example segmentation and a per-subject color QC slice montage for visual inspection.
 - Uses filename-based subject IDs.
 - Skips scans with missing or invalid voxel spacing and reports the error in Excel.
 - Is configurable through Hydra YAML.
@@ -58,7 +60,7 @@ The runner:
 5. Counts nonzero voxels.
 6. Multiplies by segmentation voxel spacing.
 7. Writes an Excel report.
-8. Copies one example segmentation and writes one color QC PNG plus one binary QC PNG.
+8. Copies one example segmentation and writes a per-subject color QC PNG.
 
 ## License Notes
 
@@ -73,7 +75,7 @@ The runner:
 - Recommended environment name: `vol-analysis`.
 - Create the environment with Python 3.10, then install `requirements.txt` into it with pip.
 - Run the local web backend from `vol-analysis`; the repo `.venv` is Python 3.13 and is not suitable for live extraction.
-- On Apple Silicon macOS, FastSurfer should use `requirements.mac.txt` and can try `fastsurfer.device=mps` with `PYTORCH_ENABLE_MPS_FALLBACK=1`.
+- On Apple Silicon macOS, FastSurfer uses the same `requirements.txt` and can try `fastsurfer.device=mps` with `PYTORCH_ENABLE_MPS_FALLBACK=1` (the local UI and wizard set this automatically for MPS runs).
 - In the Apptainer container, use `fastsurfer.executable=/fastsurfer/run_fastsurfer.sh` and `fastsurfer.device=cuda`.
 - The doctor-facing HiPerGator workflow is an OOD batch form that submits a Slurm job. Do not reintroduce an interactive GPU web session unless the user explicitly asks.
 
