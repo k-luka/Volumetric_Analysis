@@ -32,9 +32,9 @@ This tracks engineering work we can do now. Doctor-dependent scientific decision
 
    Save a small run log with FastSurfer version, command options, config, timestamps, input file list, and citation notes.
 
-8. Add automated tests.
+8. Expand automated tests.
 
-   Cover scan discovery, subject ID generation, spacing validation, volume math, report schema, and command construction.
+   Initial helper tests cover scan discovery, subject ID generation, volume math, report schema, and environment diagnostics. Add command-construction and full workflow coverage once the runtime environment is stable.
 
 9. Generate a third-party license report.
 

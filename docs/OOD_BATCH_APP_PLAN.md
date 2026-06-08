@@ -15,6 +15,10 @@ This is better than an interactive GPU web app for long queues because the UI do
 - The OOD app submits one Slurm job that runs the CLI inside Apptainer.
 - Users upload or manage scans separately through OOD Files, Globus, or another HiPerGator transfer method.
 
+Status: scaffolded, but not yet validated end to end on HiPerGator. Do not
+present this as doctor-ready until the Apptainer image path, Slurm
+account/partition, and one real GPU submission have succeeded.
+
 ## User Flow
 
 1. Log into HiPerGator Open OnDemand.

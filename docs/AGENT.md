@@ -34,11 +34,15 @@ Expected alpha batch size is about 50 volumes.
 ## Current Implementation
 
 - Main runner: `volumetric_analysis/run.py`
+- Local web backend: `volumetric_analysis/web.py`
+- React frontend: `frontend/`
 - Config: `config/config.yaml`
 - Python dependencies: `requirements.txt`
-- Scope notes and remaining study questions: `OPEN_QUESTIONS.md`
+- Scope notes and remaining study questions: `docs/CURRENT_SPEC.md`
+- Current project state: `docs/STATE.md`
+- Current MVP task queue: `docs/NEXT_STEPS.md`
 - Current alpha spec: `docs/CURRENT_SPEC.md`
-- Presentation next steps: `docs/PRESENTATION_NEXT_STEPS.md`
+- Demo prep and talking points: `docs/DEMO_GUIDE.md`
 - Technical debt tracker: `docs/TECHNICAL_DEBT.md`
 - Open OnDemand batch app plan: `docs/OOD_BATCH_APP_PLAN.md`
 - Usage instructions: `README.md`
@@ -68,6 +72,7 @@ The runner:
 - Use Conda as the primary environment path, but do not use an `environment.yml` unless the user explicitly asks.
 - Recommended environment name: `vol-analysis`.
 - Create the environment with Python 3.10, then install `requirements.txt` into it with pip.
+- Run the local web backend from `vol-analysis`; the repo `.venv` is Python 3.13 and is not suitable for live extraction.
 - On Apple Silicon macOS, FastSurfer should use `requirements.mac.txt` and can try `fastsurfer.device=mps` with `PYTORCH_ENABLE_MPS_FALLBACK=1`.
 - In the Apptainer container, use `fastsurfer.executable=/fastsurfer/run_fastsurfer.sh` and `fastsurfer.device=cuda`.
 - The doctor-facing HiPerGator workflow is an OOD batch form that submits a Slurm job. Do not reintroduce an interactive GPU web session unless the user explicitly asks.

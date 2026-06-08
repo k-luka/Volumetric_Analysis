@@ -52,15 +52,18 @@ doctor can skip through them quickly for a typical run.
 
 ## Script Structure
 
-Two files:
+Three files:
 
 ```
 deploy/wizard/
+  connect.sh         # laptop launcher — SSHes into HiPerGator (Duo), runs the wizard
   submit_job.sh      # interactive wizard — asks questions, calls sbatch
   job.sh             # non-interactive Slurm batch script — runs apptainer
 ```
 
-`submit_job.sh` is what the doctor runs. `job.sh` is what Slurm executes.
+`connect.sh` is the one command a doctor runs on their own laptop; it logs in
+and starts `submit_job.sh` over SSH. `submit_job.sh` is the wizard that runs on
+HiPerGator. `job.sh` is what Slurm executes.
 `job.sh` reads settings from environment variables exported by `sbatch --export`.
 
 This split keeps the interactive logic separate from the job logic and makes

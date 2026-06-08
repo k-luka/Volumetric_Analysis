@@ -37,6 +37,7 @@ Parameter counts from the downloaded FastSurfer checkpoints:
 ## Current Platform
 
 - Python command-line tool.
+- Local React/FastAPI browser UI for local workstation runs.
 - Open OnDemand batch app wrapper for doctor-facing HiPerGator use.
 - Conda env: `vol-analysis`.
 - Python used locally: `3.10.20`.
@@ -45,6 +46,7 @@ Parameter counts from the downloaded FastSurfer checkpoints:
 - Intended batch machine: HiPerGator or another NVIDIA GPU Linux machine.
 - Device selection: `fastsurfer.device=mps` for Mac Metal, `fastsurfer.device=cuda` for NVIDIA CUDA.
 - Container/OOD path: Apptainer image launched as a Slurm batch job through HiPerGator Open OnDemand.
+- Current primary demo path: production-built React frontend served by `python -m volumetric_analysis.web --port 8765` from the `vol-analysis` conda environment.
 
 ## Current Outputs
 
