@@ -205,7 +205,7 @@ function ControlledCanvas({ report }: { report: ReportDetail | null }) {
 }
 
 describe("ResultsCanvas", () => {
-  it("renders report rows as the primary result table", () => {
+  it("renders report metadata but not the per-scan stats table (that moved to the right panel)", () => {
     render(<ResultsCanvas report={report} runProgress={idleProgress} isRunning={false} />);
 
     expect(screen.getByRole("progressbar", { name: /run progress/i })).toHaveAttribute("aria-valuenow", "0");
@@ -213,10 +213,11 @@ describe("ResultsCanvas", () => {
     expect(screen.getByText("Saved")).toBeInTheDocument();
     expect(screen.getByText("data/tutorial")).toBeInTheDocument();
     expect(screen.getAllByText("outputs/demo").length).toBeGreaterThan(0);
-    expect(screen.getByText("Scan results")).toBeInTheDocument();
-    expect(screen.getByText("140_orig.nii.gz")).toBeInTheDocument();
-    expect(screen.getByText("1,232")).toBeInTheDocument();
-    expect(screen.getByText("ok")).toBeInTheDocument();
+
+    // The per-scan stats (file/spacing/volume/status) now live in the right-hand
+    // inspector panel, not the center canvas.
+    expect(screen.queryByText("Scan results")).not.toBeInTheDocument();
+    expect(screen.queryByText("140_orig.nii.gz")).not.toBeInTheDocument();
   });
 
   it("renders the empty canvas when no report is loaded", () => {

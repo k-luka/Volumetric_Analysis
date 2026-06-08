@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { InspectorPanel } from "./InspectorPanel";
 import type { ReportDetail, ReportSummary, RuntimeCheck, RuntimeReadiness, RunProgress, RunStatus } from "../types";
@@ -198,6 +198,85 @@ describe("InspectorPanel", () => {
     expect(screen.getByText("error")).toBeInTheDocument();
     expect(screen.getAllByText("FastSurfer failed with exit code 1").length).toBeGreaterThan(0);
     expect(screen.getByText("[1/1] scan.nii - segmenting...")).toBeInTheDocument();
+  });
+
+  it("shows the relocated per-scan results for the active report", () => {
+    const reportWithRows: ReportDetail = {
+      ...detail(savedReport),
+      rows: [
+        {
+          filename: "sub-01.nii.gz",
+          path: "/scans/sub-01.nii.gz",
+          subject_id: "sub-01",
+          input_spacing_mm: "1 x 1 x 1",
+          segmentation_spacing_mm: "1 x 1 x 1",
+          voxel_count: 0,
+          volume_mm3: 0,
+          volume_ml: 1246.35,
+          status: "ok",
+          error: "",
+        },
+        {
+          filename: "sub-02.nii.gz",
+          path: "/scans/sub-02.nii.gz",
+          subject_id: "sub-02",
+          input_spacing_mm: "1 x 1 x 1",
+          segmentation_spacing_mm: "1 x 1 x 1",
+          voxel_count: 0,
+          volume_mm3: 0,
+          volume_ml: 0,
+          status: "error",
+          error: "Could not read voxel spacing.",
+        },
+      ],
+    };
+
+    render(
+      <InspectorPanel
+        reports={[savedReport]}
+        activeReport={reportWithRows}
+        runStatus={null}
+        runProgress={idleProgress}
+        logs={[]}
+        runtimeChecks={[]}
+        runtimeReadiness={runtimeUnknown}
+        isCheckingRuntime={false}
+        onCheckRuntime={vi.fn()}
+        onOpenReport={vi.fn()}
+        onReportsRefresh={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Scan results")).toBeInTheDocument();
+    const list = screen.getByRole("list", { name: /scan results/i });
+    expect(within(list).getByText("sub-01.nii.gz")).toBeInTheDocument();
+    expect(within(list).getByText("sub-02.nii.gz")).toBeInTheDocument();
+    // Volume is formatted with separators and shown per scan.
+    expect(within(list).getByText(/1,246\.35\s*mL/)).toBeInTheDocument();
+    // The failed scan surfaces its status and error.
+    expect(within(list).getByText("error")).toBeInTheDocument();
+    expect(within(list).getByText("Could not read voxel spacing.")).toBeInTheDocument();
+  });
+
+  it("notes when the active report has no scan rows", () => {
+    render(
+      <InspectorPanel
+        reports={[savedReport]}
+        activeReport={detail(savedReport)}
+        runStatus={null}
+        runProgress={idleProgress}
+        logs={[]}
+        runtimeChecks={[]}
+        runtimeReadiness={runtimeUnknown}
+        isCheckingRuntime={false}
+        onCheckRuntime={vi.fn()}
+        onOpenReport={vi.fn()}
+        onReportsRefresh={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Scan results")).toBeInTheDocument();
+    expect(screen.getByText(/No scan rows are available/i)).toBeInTheDocument();
   });
 
   it("uses shared runtime diagnostics state", () => {

@@ -1573,6 +1573,87 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
+/* Per-scan stats moved out of the center canvas into the right panel: a
+   fixed-height box so the layout never jumps as the scan count changes; it
+   scrolls once there are more scans than fit. */
+.scan-results-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  height: 196px;
+  margin-top: 4px;
+  padding-right: 2px;
+  overflow-y: auto;
+}
+
+.scan-result-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px 9px;
+  border: 1px solid var(--line);
+  border-left-width: 3px;
+  border-radius: var(--radius);
+  background: var(--field);
+}
+
+.scan-result-item.ok {
+  border-left-color: var(--ok);
+}
+
+.scan-result-item.fail {
+  border-left-color: var(--danger);
+}
+
+.scan-result-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.scan-result-file {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.scan-result-status {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.scan-result-item.ok .scan-result-status {
+  color: var(--ok);
+}
+
+.scan-result-item.fail .scan-result-status {
+  color: var(--danger);
+}
+
+.scan-result-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  color: var(--muted);
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
+}
+
+.scan-result-error {
+  color: var(--danger);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
 .run-log-list {
   display: grid;
   gap: 6px;

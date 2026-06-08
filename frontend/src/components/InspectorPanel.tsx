@@ -4,6 +4,18 @@ import { Download, FileSpreadsheet, RefreshCcw, Stethoscope } from "lucide-react
 import { openDownload } from "../lib/api";
 import type { ReportDetail, ReportSummary, RuntimeCheck, RuntimeReadiness, RunProgress, RunStatus } from "../types";
 
+// Compact display of a per-scan stat: numbers get thousands separators and 2
+// decimals, blanks become a dash.
+function formatStat(value: string | number): string {
+  if (value === "" || value === null || typeof value === "undefined") {
+    return "-";
+  }
+  if (typeof value === "number") {
+    return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  }
+  return value;
+}
+
 type InspectorPanelProps = {
   reports: ReportSummary[];
   activeReport: ReportDetail | null;
@@ -150,6 +162,35 @@ export function InspectorPanel({
             <span>{failureMessage}</span>
           </div>
         ) : null}
+      </section>
+
+      <section className="panel-section">
+        <div className="section-title">Scan results</div>
+        {!activeReport ? (
+          <div className="inline-note">Open a report or run analysis to see per-scan stats.</div>
+        ) : activeReport.rows.length === 0 ? (
+          <div className="inline-note">No scan rows are available for this report.</div>
+        ) : (
+          <div className="scan-results-box" role="list" aria-label="Scan results">
+            {activeReport.rows.map((row) => {
+              const failed = Boolean(row.status) && row.status !== "ok";
+              return (
+                <div className={`scan-result-item ${failed ? "fail" : "ok"}`} role="listitem" key={row.path || row.filename}>
+                  <div className="scan-result-head">
+                    <span className="scan-result-file" title={row.filename}>{row.filename || "-"}</span>
+                    <span className="scan-result-status">{row.status || "-"}</span>
+                  </div>
+                  <div className="scan-result-meta">
+                    <span title="Subject">{row.subject_id || "-"}</span>
+                    <span title="Input spacing">{formatStat(row.input_spacing_mm)} mm</span>
+                    <span title="Volume">{formatStat(row.volume_ml)} mL</span>
+                  </div>
+                  {row.error ? <div className="scan-result-error">{row.error}</div> : null}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       <details className="panel-disclosure" open={runStatus?.state === "error"}>

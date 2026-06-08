@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from "@tanstack/react-table";
 import { ChevronLeft, ChevronRight, ImageIcon, SlidersHorizontal } from "lucide-react";
 import { apiUrl, getAtlasRegions } from "../lib/api";
 import VolumeViewer from "./VolumeViewer";
 import { SEG_MAX_LABEL, buildSegLut, type RegionSelection } from "../lib/segLut";
-import type { AtlasRegion, QcScan, ReportDetail, ReportRow, RunProgress, StructureVolume, ViewerMode } from "../types";
+import type { AtlasRegion, QcScan, ReportDetail, RunProgress, StructureVolume, ViewerMode } from "../types";
 
 type ResultsCanvasProps = {
   report: ReportDetail | null;
@@ -24,16 +23,6 @@ function fmt(value: number | null): string {
   return value.toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 2 });
 }
 
-function cellText(value: string | number): string {
-  if (value === "" || value === null || typeof value === "undefined") {
-    return "-";
-  }
-  if (typeof value === "number") {
-    return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
-  }
-  return value;
-}
-
 function formatTimestamp(value: number): string {
   if (!Number.isFinite(value) || value <= 0) {
     return "-";
@@ -50,45 +39,6 @@ function readableSource(source: "saved" | "current_run", temporary: boolean): st
 
 function valueOrDash(value: string | null): string {
   return value && value.trim() ? value : "-";
-}
-
-function ReportRowsTable({ rows }: { rows: ReportRow[] }) {
-  const columns = useMemo<ColumnDef<ReportRow>[]>(
-    () => [
-      { accessorKey: "filename", header: "File", cell: (info) => cellText(info.getValue<string>()) },
-      { accessorKey: "subject_id", header: "Subject", cell: (info) => cellText(info.getValue<string>()) },
-      { accessorKey: "input_spacing_mm", header: "Input spacing", cell: (info) => cellText(info.getValue<string>()) },
-      { accessorKey: "volume_ml", header: "Volume (mL)", cell: (info) => cellText(info.getValue<string | number>()) },
-      { accessorKey: "status", header: "Status", cell: (info) => cellText(info.getValue<string>()) },
-      { accessorKey: "error", header: "Error", cell: (info) => cellText(info.getValue<string>()) },
-    ],
-    [],
-  );
-  const table = useReactTable({ data: rows, columns, getCoreRowModel: getCoreRowModel() });
-  return (
-    <div className="table-frame report-table-frame">
-      <table className="structure-table report-table">
-        <thead>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <tr key={headerGroup.id}>
-              {headerGroup.headers.map((header) => (
-                <th key={header.id}>{header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}</th>
-              ))}
-            </tr>
-          ))}
-        </thead>
-        <tbody>
-          {table.getRowModel().rows.map((row) => (
-            <tr key={row.id}>
-              {row.getVisibleCells().map((cell) => (
-                <td key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
 }
 
 function StructureTable({ rows }: { rows: StructureVolume[] }) {
@@ -625,9 +575,6 @@ export function ResultsCanvas({ report, runProgress, isRunning, viewerMode = "mo
               <strong>{valueOrDash(report.metadata.runState)}</strong>
             </div>
           </div>
-
-          <div className="section-title">Scan results</div>
-          {report.rows.length ? <ReportRowsTable rows={report.rows} /> : <div className="empty-panel">No scan rows are available for this report.</div>}
 
           <div className="center-view-header">
             <div className="section-title">Detailed result</div>
