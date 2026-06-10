@@ -8,9 +8,30 @@ type LoadedVolume = { url: string; name?: string; colormap?: string; opacity?: n
 // Shape of the per-label LUT the component assigns to nv.volumes[1].colormapLabel.
 type FakeLut = { lut: Uint8ClampedArray; min: number; max: number };
 
-// One fake NVImage volume, just enough surface for the seg-LUT recolor path and
-// the slice-count readout (dims) the scrubbers use.
-type FakeVolume = { name?: string; colormapLabel: FakeLut | null; dims?: number[] };
+// One fake NVImage volume, just enough surface for the seg-overlay reconcile
+// path (colormapLabel + opacity + clone) and the slice-count readout (dims) the
+// scrubbers use.
+type FakeVolume = {
+  name?: string;
+  colormapLabel: FakeLut | null;
+  opacity: number;
+  dims?: number[];
+  clone: () => FakeVolume;
+};
+
+// Build a fake volume with the surface the reconcile path touches. clone()
+// returns a fresh fake (mimicking NVImage.clone copying decoded data) so the
+// component can add a region overlay without a refetch.
+function makeFakeVolume(name?: string, dims?: number[]): FakeVolume {
+  const v: FakeVolume = {
+    name,
+    colormapLabel: null,
+    opacity: 1,
+    dims,
+    clone: () => makeFakeVolume(name, dims),
+  };
+  return v;
+}
 
 // Records every interaction the component has with NiiVue so the tests can
 // assert on attach/load/setSliceType without a real WebGL context.
@@ -19,13 +40,20 @@ const attachToCanvas = vi.fn(async (_canvas: HTMLCanvasElement) => {});
 // which reads nv.volumes[1], has something to operate on after a load. dims
 // mimics a 256^3 conformed volume so the scrubbers report "/ 256".
 const loadVolumes = vi.fn(async function (this: FakeNiivue, volumes: LoadedVolume[]) {
-  this.volumes = volumes.map((v) => ({ name: v.name, colormapLabel: null, dims: [3, 256, 256, 256] }));
+  this.volumes = volumes.map((v) => makeFakeVolume(v.name, [3, 256, 256, 256]));
 });
 const setSliceType = vi.fn((_sliceType: string) => {});
 const updateGLVolume = vi.fn(() => {});
 const cleanup = vi.fn(() => {});
-// Repaint hook the slice sliders call after moving the crosshair.
+// Repaint hook the slice sliders + reconcile call after moving/recoloring.
 const drawScene = vi.fn(() => {});
+// Reconcile adds/removes cloned region overlays.
+const addVolume = vi.fn(function (this: FakeNiivue, v: FakeVolume) {
+  this.volumes.push(v);
+});
+const removeVolumeByIndex = vi.fn(function (this: FakeNiivue, i: number) {
+  this.volumes.splice(i, 1);
+});
 
 // Counts how many FakeNiivue instances were constructed so a test can prove the
 // component reuses a single instance across URL changes (no WebGL-context leak).
@@ -44,6 +72,8 @@ type FakeNiivue = {
   sliceTypeRender: string;
   volumes: FakeVolume[];
   updateGLVolume: typeof updateGLVolume;
+  addVolume: typeof addVolume;
+  removeVolumeByIndex: typeof removeVolumeByIndex;
   opts: { crosshairWidth: number; multiplanarLayout: number; multiplanarShowRender: number };
   scene: { crosshairPos: number[] };
   drawScene: typeof drawScene;
@@ -68,6 +98,8 @@ vi.mock("@niivue/niivue", () => {
     loadVolumes = loadVolumes;
     setSliceType = setSliceType;
     updateGLVolume = updateGLVolume;
+    addVolume = addVolume;
+    removeVolumeByIndex = removeVolumeByIndex;
     cleanup = cleanup;
     drawScene = drawScene;
     onLocationChange: (loc: unknown) => void = () => {};
@@ -107,6 +139,8 @@ beforeEach(() => {
   loadVolumes.mockClear();
   setSliceType.mockClear();
   updateGLVolume.mockClear();
+  addVolume.mockClear();
+  removeVolumeByIndex.mockClear();
   cleanup.mockClear();
   drawScene.mockClear();
   instanceCount = 0;
@@ -153,23 +187,92 @@ describe("VolumeViewer", () => {
     expect(SEG_LABEL_VOLUME_NAME).toContain("aparc.DKTatlas+aseg.deep.mg");
   });
 
-  it("recolors the seg overlay via colormapLabel after load when a segLut is supplied", async () => {
+  it("recolors the seg overlay via colormapLabel after load when a base layer is supplied", async () => {
     const lut = new Uint8ClampedArray((2035 + 1) * 4).fill(7);
 
-    render(<VolumeViewer anatUrl="/api/anat.mgz" segUrl="/api/seg.mgz" mode="slices" segLut={lut} />);
+    render(
+      <VolumeViewer
+        anatUrl="/api/anat.mgz"
+        segUrl="/api/seg.mgz"
+        mode="slices"
+        segLayers={[{ key: "base", lut, opacity: 1 }]}
+      />,
+    );
 
     await waitFor(() => expect(loadVolumes).toHaveBeenCalledTimes(1));
 
-    // The LUT is assigned to the overlay (volumes[1]), not the anat (volumes[0]),
-    // spanning the full 0..2035 label range, and a GL refresh is requested so it
-    // takes effect in both multiplanar and render modes (shared colormap texture).
+    // The base layer's LUT is assigned to the overlay (volumes[1]), not the anat
+    // (volumes[0]), spanning the full 0..2035 label range, and a GL refresh is
+    // requested so it takes effect in both multiplanar and render modes (shared
+    // colormap texture). With one layer there are no cloned region overlays.
     await waitFor(() => expect(lastInstance?.volumes[1].colormapLabel).not.toBeNull());
     expect(lastInstance?.volumes[0].colormapLabel).toBeNull();
     const applied = lastInstance?.volumes[1].colormapLabel;
     expect(applied?.lut).toBe(lut);
     expect(applied?.min).toBe(0);
     expect(applied?.max).toBe(2035);
+    expect(lastInstance?.volumes).toHaveLength(2);
     expect(updateGLVolume).toHaveBeenCalled();
+  });
+
+  it("clones a region overlay per extra layer and applies its LUT + opacity", async () => {
+    const baseLut = new Uint8ClampedArray((2035 + 1) * 4).fill(1);
+    const regionLut = new Uint8ClampedArray((2035 + 1) * 4).fill(2);
+
+    const { rerender } = render(
+      <VolumeViewer
+        anatUrl="/api/anat.mgz"
+        segUrl="/api/seg.mgz"
+        mode="slices"
+        segLayers={[
+          { key: "base", lut: baseLut, opacity: 1 },
+          { key: "hippocampus", lut: regionLut, opacity: 0.4 },
+        ]}
+      />,
+    );
+
+    await waitFor(() => expect(loadVolumes).toHaveBeenCalledTimes(1));
+
+    // anat + base + 1 cloned region overlay.
+    await waitFor(() => expect(lastInstance?.volumes).toHaveLength(3));
+    expect(lastInstance?.volumes[1].colormapLabel?.lut).toBe(baseLut);
+    expect(lastInstance?.volumes[2].colormapLabel?.lut).toBe(regionLut);
+    expect(lastInstance?.volumes[2].opacity).toBe(0.4);
+    // No second load: the region overlay was cloned from the decoded base seg.
+    expect(loadVolumes).toHaveBeenCalledTimes(1);
+
+    // Reducing back to one layer removes the cloned overlay.
+    rerender(
+      <VolumeViewer
+        anatUrl="/api/anat.mgz"
+        segUrl="/api/seg.mgz"
+        mode="slices"
+        segLayers={[{ key: "base", lut: baseLut, opacity: 1 }]}
+      />,
+    );
+    await waitFor(() => expect(lastInstance?.volumes).toHaveLength(2));
+  });
+
+  it("updates only the overlay opacity when a layer's opacity changes", async () => {
+    const baseLut = new Uint8ClampedArray((2035 + 1) * 4).fill(1);
+    const regionLut = new Uint8ClampedArray((2035 + 1) * 4).fill(2);
+    const layers = (regionOpacity: number) => [
+      { key: "base", lut: baseLut, opacity: 1 },
+      { key: "hippocampus", lut: regionLut, opacity: regionOpacity },
+    ];
+
+    const { rerender } = render(
+      <VolumeViewer anatUrl="/api/anat.mgz" segUrl="/api/seg.mgz" mode="slices" segLayers={layers(0.8)} />,
+    );
+
+    await waitFor(() => expect(lastInstance?.volumes).toHaveLength(3));
+    expect(lastInstance?.volumes[2].opacity).toBe(0.8);
+
+    rerender(<VolumeViewer anatUrl="/api/anat.mgz" segUrl="/api/seg.mgz" mode="slices" segLayers={layers(0.2)} />);
+
+    await waitFor(() => expect(lastInstance?.volumes[2].opacity).toBe(0.2));
+    // Still three overlays (no add/remove for an opacity-only change).
+    expect(lastInstance?.volumes).toHaveLength(3);
   });
 
   it("applies the LUT inside the load flow (no freesurfer-color flash) when mounted with a segLut", async () => {
@@ -181,13 +284,13 @@ describe("VolumeViewer", () => {
     // path, distinct from the prop-change re-apply covered below.
     const deferred = deferredLoad();
     loadVolumes.mockImplementationOnce(async function (this: FakeNiivue, volumes: LoadedVolume[]) {
-      this.volumes = volumes.map((v) => ({ name: v.name, colormapLabel: null }));
+      this.volumes = volumes.map((v) => makeFakeVolume(v.name));
       return deferred.mock([]);
     });
     const lut = new Uint8ClampedArray((2035 + 1) * 4).fill(5);
 
     const { getByRole, queryByText } = render(
-      <VolumeViewer anatUrl="/api/anat.mgz" segUrl="/api/seg.mgz" mode="slices" segLut={lut} />,
+      <VolumeViewer anatUrl="/api/anat.mgz" segUrl="/api/seg.mgz" mode="slices" segLayers={[{ key: "base", lut, opacity: 1 }]} />,
     );
 
     // Still loading: the overlay has not been recolored yet.
@@ -205,19 +308,31 @@ describe("VolumeViewer", () => {
     expect(updateGLVolume).toHaveBeenCalled();
   });
 
-  it("re-applies the LUT when the segLut prop changes without reloading volumes", async () => {
+  it("re-applies the base LUT when the segLayers prop changes without reloading volumes", async () => {
     const first = new Uint8ClampedArray((2035 + 1) * 4).fill(1);
     const second = new Uint8ClampedArray((2035 + 1) * 4).fill(2);
 
     const { rerender } = render(
-      <VolumeViewer anatUrl="/api/anat.mgz" segUrl="/api/seg.mgz" mode="slices" segLut={first} />,
+      <VolumeViewer
+        anatUrl="/api/anat.mgz"
+        segUrl="/api/seg.mgz"
+        mode="slices"
+        segLayers={[{ key: "base", lut: first, opacity: 1 }]}
+      />,
     );
 
     await waitFor(() => expect(loadVolumes).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(lastInstance?.volumes[1].colormapLabel?.lut).toBe(first));
     updateGLVolume.mockClear();
 
-    rerender(<VolumeViewer anatUrl="/api/anat.mgz" segUrl="/api/seg.mgz" mode="slices" segLut={second} />);
+    rerender(
+      <VolumeViewer
+        anatUrl="/api/anat.mgz"
+        segUrl="/api/seg.mgz"
+        mode="slices"
+        segLayers={[{ key: "base", lut: second, opacity: 1 }]}
+      />,
+    );
 
     // New LUT swapped in, GL refreshed, but no second loadVolumes call.
     await waitFor(() => expect(lastInstance?.volumes[1].colormapLabel?.lut).toBe(second));
@@ -228,7 +343,14 @@ describe("VolumeViewer", () => {
   it("does not touch colormapLabel when there is no seg overlay", async () => {
     const lut = new Uint8ClampedArray((2035 + 1) * 4).fill(9);
 
-    render(<VolumeViewer anatUrl="/api/anat.mgz" segUrl={null} mode="slices" segLut={lut} />);
+    render(
+      <VolumeViewer
+        anatUrl="/api/anat.mgz"
+        segUrl={null}
+        mode="slices"
+        segLayers={[{ key: "base", lut, opacity: 1 }]}
+      />,
+    );
 
     await waitFor(() => expect(loadVolumes).toHaveBeenCalledTimes(1));
 

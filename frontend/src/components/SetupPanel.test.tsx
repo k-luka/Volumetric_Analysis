@@ -44,10 +44,6 @@ const baseProps = {
   onCheckRuntime: vi.fn(),
   onRun: vi.fn(),
   onCancelRun: vi.fn(),
-  viewerControlsVisible: false,
-  viewerHasVolume: false,
-  viewerMode: "montage" as const,
-  onViewerModeChange: vi.fn(),
 };
 
 describe("SetupPanel", () => {
@@ -271,65 +267,5 @@ describe("SetupPanel", () => {
     expect(screen.getByText(/No scans selected\. Click/i)).toBeInTheDocument();
     expect(screen.getByText("No results folder selected.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /run analysis/i })).toBeDisabled();
-  });
-
-  it("hides the viewer mode buttons until the segmentation view is open", () => {
-    const { rerender } = render(<SetupPanel {...baseProps} viewerControlsVisible={false} />);
-
-    expect(screen.queryByText("Segmentation view")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Montage" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Slices" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "3D" })).not.toBeInTheDocument();
-
-    rerender(<SetupPanel {...baseProps} viewerControlsVisible viewerHasVolume />);
-
-    expect(screen.getByText("Segmentation view")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Montage" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Slices" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "3D" })).toBeInTheDocument();
-  });
-
-  it("disables Slices/3D and shows a persistent hint when no volume is available", () => {
-    render(<SetupPanel {...baseProps} viewerControlsVisible viewerHasVolume={false} />);
-
-    expect(screen.getByRole("button", { name: "Montage" })).toBeEnabled();
-    const slices = screen.getByRole("button", { name: "Slices" });
-    const threeD = screen.getByRole("button", { name: "3D" });
-    expect(slices).toBeDisabled();
-    expect(threeD).toBeDisabled();
-
-    // The caption is a persistent, screen-reader-linked hint, not a hover title.
-    const hint = screen.getByText(/Interactive viewer unavailable for this report/i);
-    expect(hint).toBeVisible();
-    expect(slices).toHaveAttribute("aria-describedby", hint.id);
-    expect(threeD).toHaveAttribute("aria-describedby", hint.id);
-  });
-
-  it("enables every mode and drops the hint once a volume is available", () => {
-    render(<SetupPanel {...baseProps} viewerControlsVisible viewerHasVolume />);
-
-    expect(screen.getByRole("button", { name: "Montage" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Slices" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "3D" })).toBeEnabled();
-    expect(screen.queryByText(/Interactive viewer unavailable for this report/i)).not.toBeInTheDocument();
-  });
-
-  it("marks the active mode as pressed and fires onViewerModeChange when a mode is clicked", () => {
-    const onViewerModeChange = vi.fn();
-    render(
-      <SetupPanel
-        {...baseProps}
-        viewerControlsVisible
-        viewerHasVolume
-        viewerMode="slices"
-        onViewerModeChange={onViewerModeChange}
-      />,
-    );
-
-    expect(screen.getByRole("button", { name: "Slices" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: "Montage" })).toHaveAttribute("aria-pressed", "false");
-
-    fireEvent.click(screen.getByRole("button", { name: "3D" }));
-    expect(onViewerModeChange).toHaveBeenCalledWith("3d");
   });
 });

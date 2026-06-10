@@ -5,6 +5,7 @@ import {
   BASE_ALPHA,
   REGION_ALPHA,
   SEG_MAX_LABEL,
+  buildSegLayers,
   buildSegLut,
   hexToRgb,
   type RegionSelection,
@@ -211,5 +212,73 @@ describe("buildSegLut", () => {
     for (let i = 1; i <= 60; i++) {
       expect(lut[i * 4 + 3]).not.toBe(0);
     }
+  });
+});
+
+describe("buildSegLayers", () => {
+  it("with no selection returns exactly one base layer painted entirely base color", () => {
+    const layers = buildSegLayers([HIPPOCAMPUS, AMYGDALA], {}, BASE, SEG_MAX_LABEL, 0.5);
+    expect(layers).toHaveLength(1);
+    expect(layers[0].key).toBe("base");
+    expect(layers[0].opacity).toBe(0.5);
+    // Index 0 transparent; every label base color + BASE_ALPHA.
+    expect(rgba(layers[0].lut, 0)).toEqual([0, 0, 0, 0]);
+    expect(rgba(layers[0].lut, 17)).toEqual([BR, BG, BB, BASE_ALPHA]);
+    expect(rgba(layers[0].lut, SEG_MAX_LABEL)).toEqual([BR, BG, BB, BASE_ALPHA]);
+  });
+
+  it("with one region on returns a base + region layer; base punches the region transparent", () => {
+    const selection: RegionSelection = {
+      hippocampus: { on: true, color: "#ff0000", opacity: 0.4 },
+    };
+    const layers = buildSegLayers([HIPPOCAMPUS, AMYGDALA], selection, BASE);
+    expect(layers).toHaveLength(2);
+
+    const [base, hippo] = layers;
+    // Base: hippocampus labels are fully transparent so the region overlay shows
+    // through; other labels stay base color.
+    expect(base.key).toBe("base");
+    expect(rgba(base.lut, 17)).toEqual([0, 0, 0, 0]);
+    expect(rgba(base.lut, 53)).toEqual([0, 0, 0, 0]);
+    expect(rgba(base.lut, 16)).toEqual([BR, BG, BB, BASE_ALPHA]);
+
+    // Region layer: only hippocampus labels carry the region color; others (and
+    // index 0) are transparent. Opacity reflects the selection.
+    expect(hippo.key).toBe("hippocampus");
+    expect(hippo.opacity).toBe(0.4);
+    expect(rgba(hippo.lut, 17)).toEqual([255, 0, 0, REGION_ALPHA]);
+    expect(rgba(hippo.lut, 53)).toEqual([255, 0, 0, REGION_ALPHA]);
+    expect(rgba(hippo.lut, 16)).toEqual([0, 0, 0, 0]);
+    expect(rgba(hippo.lut, 0)).toEqual([0, 0, 0, 0]);
+  });
+
+  it("defaults opacity to 1 when omitted and clamps out-of-range values", () => {
+    const onlyOn: RegionSelection = { hippocampus: { on: true, color: "#ff0000" } };
+    expect(buildSegLayers([HIPPOCAMPUS], onlyOn, BASE)[1].opacity).toBe(1);
+
+    const tooHigh: RegionSelection = { hippocampus: { on: true, color: "#ff0000", opacity: 1.5 } };
+    expect(buildSegLayers([HIPPOCAMPUS], tooHigh, BASE)[1].opacity).toBe(1);
+
+    const tooLow: RegionSelection = { hippocampus: { on: true, color: "#ff0000", opacity: -0.2 } };
+    expect(buildSegLayers([HIPPOCAMPUS], tooLow, BASE)[1].opacity).toBe(0);
+
+    // baseOpacity is clamped too.
+    expect(buildSegLayers([], {}, BASE, SEG_MAX_LABEL, 2)[0].opacity).toBe(1);
+  });
+
+  it("with two regions on returns three layers in catalog order", () => {
+    const selection: RegionSelection = {
+      hippocampus: { on: true, color: "#ff0000" },
+      amygdala: { on: true, color: "#0000ff" },
+    };
+    const layers = buildSegLayers([HIPPOCAMPUS, AMYGDALA], selection, BASE);
+    expect(layers.map((l) => l.key)).toEqual(["base", "hippocampus", "amygdala"]);
+
+    // Each region's color lives only in its own layer.
+    expect(rgba(layers[1].lut, 17)).toEqual([255, 0, 0, REGION_ALPHA]);
+    expect(rgba(layers[2].lut, 18)).toEqual([0, 0, 255, REGION_ALPHA]);
+    // And the base punches both regions transparent.
+    expect(rgba(layers[0].lut, 17)).toEqual([0, 0, 0, 0]);
+    expect(rgba(layers[0].lut, 18)).toEqual([0, 0, 0, 0]);
   });
 });

@@ -1,13 +1,7 @@
 import { useState } from "react";
 import { Button, Label, ListBox, ListBoxItem, Popover, Select, SelectValue } from "react-aria-components";
-import { Box, CheckCircle2, ChevronDown, FileText, FolderOpen, ImageIcon, Layers, Play, Square, Stethoscope, X } from "lucide-react";
-import type { RuntimeReadiness, ValidateOutputResponse, ValidateScansResponse, ViewerMode } from "../types";
-
-const VIEWER_MODES: { value: ViewerMode; label: string; icon: typeof Layers; needsVolume: boolean }[] = [
-  { value: "montage", label: "Montage", icon: ImageIcon, needsVolume: false },
-  { value: "slices", label: "Slices", icon: Layers, needsVolume: true },
-  { value: "3d", label: "3D", icon: Box, needsVolume: true },
-];
+import { CheckCircle2, ChevronDown, FileText, FolderOpen, Play, Square, Stethoscope, X } from "lucide-react";
+import type { RuntimeReadiness, ValidateOutputResponse, ValidateScansResponse } from "../types";
 
 type SetupPanelProps = {
   scanPaths: string[];
@@ -29,10 +23,6 @@ type SetupPanelProps = {
   onCheckRuntime: () => void;
   onRun: () => void;
   onCancelRun: () => void;
-  viewerControlsVisible: boolean;
-  viewerHasVolume: boolean;
-  viewerMode: ViewerMode;
-  onViewerModeChange: (mode: ViewerMode) => void;
 };
 
 function baseName(path: string): string {
@@ -71,10 +61,6 @@ export function SetupPanel({
   onCheckRuntime,
   onRun,
   onCancelRun,
-  viewerControlsVisible,
-  viewerHasVolume,
-  viewerMode,
-  onViewerModeChange,
 }: SetupPanelProps) {
   const [statusOpen, setStatusOpen] = useState(false);
   const hasScans = scanPaths.length > 0;
@@ -232,41 +218,6 @@ export function SetupPanel({
           </Popover>
         </Select>
       </section>
-
-      {viewerControlsVisible ? (
-        <>
-          <div className="panel-divider" />
-          <section className="panel-section">
-            <div className="section-title">Segmentation view</div>
-            <div className="viewer-mode-rail" role="group" aria-label="Viewer mode">
-              {VIEWER_MODES.map(({ value, label, icon: Icon, needsVolume }) => {
-                const disabled = needsVolume && !viewerHasVolume;
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    className={`viewer-mode-button ${viewerMode === value ? "active" : ""}`}
-                    aria-pressed={viewerMode === value}
-                    aria-label={label}
-                    title={disabled ? "No volume files are available for this scan." : label}
-                    aria-describedby={disabled ? "viewer-mode-disabled-hint" : undefined}
-                    disabled={disabled}
-                    onClick={() => onViewerModeChange(value)}
-                  >
-                    <Icon size={16} aria-hidden="true" />
-                    <span>{label}</span>
-                  </button>
-                );
-              })}
-            </div>
-            {!viewerHasVolume ? (
-              <p id="viewer-mode-disabled-hint" className="viewer-mode-hint">
-                Interactive viewer unavailable for this report.
-              </p>
-            ) : null}
-          </section>
-        </>
-      ) : null}
     </aside>
   );
 }

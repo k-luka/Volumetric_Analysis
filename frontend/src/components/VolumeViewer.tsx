@@ -1,16 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { MULTIPLANAR_TYPE, Niivue, SHOW_RENDER } from "@niivue/niivue";
-import { SEG_LABEL_VOLUME_NAME, SEG_MAX_LABEL } from "../lib/segLut";
+import { SEG_LABEL_VOLUME_NAME, SEG_MAX_LABEL, type SegLayer } from "../lib/segLut";
 
 type VolumeViewerProps = {
   anatUrl: string;
   segUrl: string | null;
   mode: "slices" | "3d";
-  // Flat NiiVue label LUT (Uint8ClampedArray, (SEG_MAX_LABEL+1)*4 bytes,
-  // [R,G,B,A] per label id) used to recolor the segmentation overlay. When
-  // null the overlay keeps whatever colors NiiVue assigned on load. The LUT
-  // carries its own alpha, so the seg volume is loaded plain at opacity 1.
-  segLut?: Uint8ClampedArray | null;
+  // The segmentation render, split into one overlay volume per layer (see
+  // buildSegLayers / the SegLayer doc). layers[0] is the BASE overlay loaded as
+  // nv.volumes[1]; each later layer is a CLONE of that seg image with its own
+  // colormapLabel LUT and per-overlay opacity. The split exists ONLY because
+  // NiiVue's atlas shader binarizes per-label alpha, so graduated per-region
+  // transparency has to come from each region's own overlay opacity, not LUT
+  // alpha. When null/empty the overlay keeps whatever colors NiiVue assigned on
+  // load.
+  segLayers?: SegLayer[] | null;
 };
 
 // Slice scrubbers, in the left-to-right order NiiVue draws the multiplanar row
@@ -23,18 +27,101 @@ const SLICE_AXES: { label: string; axis: 0 | 1 | 2 }[] = [
   { label: "Sagittal", axis: 0 },
 ];
 
-// Apply a label LUT to the segmentation overlay (nv.volumes[1]). Setting
-// `colormapLabel = { lut, min, max }` and calling updateGLVolume() rebuilds the
-// single colormap texture NiiVue uploads for the overlay (see
-// VolumeColormap.setupColormapLabel). That texture feeds BOTH the multiplanar
-// (2D slices) and render (3D) shaders, so one call recolors the overlay in
+// Reconcile the NiiVue overlay volumes to match `layers`.
+//
+// layers[0] is the BASE overlay, already loaded as nv.volumes[1]. Every later
+// layer needs its OWN overlay volume (so it can carry its own per-overlay
+// `opacity`, which the atlas shader applies after binarizing per-label alpha —
+// see the SegLayer doc for why a single LUT cannot do graduated transparency).
+// We materialize those extra overlays by CLONING the loaded base seg image:
+// clone() copies the already-decoded voxel data, so adding a region overlay is a
+// pure GPU/CPU copy with NO network refetch.
+//
+// Setting each overlay's `colormapLabel = { lut, min, max }` and calling
+// updateGLVolume() rebuilds the colormap textures NiiVue uploads; those textures
+// feed BOTH the multiplanar (2D) and render (3D) shaders, so one pass recolors
 // every view mode. No-ops until the seg volume is actually loaded.
-function applySegLut(nv: Niivue | null, lut: Uint8ClampedArray | null | undefined): void {
-  if (!nv || !lut || !nv.volumes || nv.volumes.length < 2 || !nv.volumes[1]) {
+function reconcileSegLayers(nv: Niivue | null, layers: SegLayer[] | null | undefined): void {
+  if (!nv || !nv.volumes || nv.volumes.length < 2 || !nv.volumes[1] || !layers || layers.length === 0) {
     return;
   }
-  nv.volumes[1].colormapLabel = { lut, min: 0, max: SEG_MAX_LABEL };
+  // Region overlays live at indices 2.. (index 0 = anat, index 1 = base seg).
+  const desiredRegionOverlays = layers.length - 1;
+  // GROW: clone the loaded base seg image for each missing region overlay.
+  while (nv.volumes.length - 2 < desiredRegionOverlays) {
+    const clone = nv.volumes[1].clone();
+    nv.addVolume(clone);
+  }
+  // SHRINK: drop the trailing region overlays no longer needed.
+  while (nv.volumes.length - 2 > desiredRegionOverlays) {
+    nv.removeVolumeByIndex(nv.volumes.length - 1);
+  }
+  // Apply each layer's LUT + opacity to its overlay (base at index 1, regions
+  // at 2..). Adds/removes happen above so every index now exists.
+  for (let i = 0; i < layers.length; i++) {
+    const v = nv.volumes[1 + i];
+    v.colormapLabel = { lut: layers[i].lut, min: 0, max: SEG_MAX_LABEL };
+    v.opacity = layers[i].opacity;
+  }
   nv.updateGLVolume();
+  nv.drawScene?.();
+}
+
+// Stable per-LUT id so the structure signature changes whenever a LUT object is
+// rebuilt (a color/selection edit produces fresh Uint8ClampedArrays). A plain
+// key+count signature would miss a recolor that keeps the same regions.
+let lutIdSeq = 0;
+const lutIds = new WeakMap<Uint8ClampedArray, number>();
+function lutId(lut: Uint8ClampedArray): number {
+  let id = lutIds.get(lut);
+  if (id === undefined) {
+    id = ++lutIdSeq;
+    lutIds.set(lut, id);
+  }
+  return id;
+}
+
+// A signature for the LUT identity + overlay count of a layer set. When this
+// changes, overlays must be added/removed and LUTs reuploaded (the heavy
+// reconcile). Opacity is intentionally EXCLUDED so dragging an opacity slider
+// does not trigger a full GL rebuild — it takes the cheap light-path below.
+function layerStructureSignature(layers: SegLayer[] | null | undefined): string {
+  if (!layers || layers.length === 0) {
+    return "";
+  }
+  return layers.map((l) => `${l.key}:${lutId(l.lut)}`).join("|");
+}
+
+// A signature of just the opacities, for the cheap opacity-only light-path.
+function layerOpacitySignature(layers: SegLayer[] | null | undefined): string {
+  if (!layers || layers.length === 0) {
+    return "";
+  }
+  return layers.map((l) => l.opacity).join(",");
+}
+
+// Apply the view mode (2D multiplanar vs 3D render) AND hide the anatomical
+// volume in 3D. The anat (volumes[0]) carries the skull/scalp, which renders as
+// an unsettling face mesh in the 3D volume render; in 3D we drop its opacity to
+// 0 so ONLY the brain segmentation overlays render ("just the brain"). In 2D
+// slices the anat is the grayscale backdrop, so it returns to full opacity.
+function applyViewMode(nv: Niivue | null, mode: "slices" | "3d"): void {
+  if (!nv) {
+    return;
+  }
+  nv.setSliceType(mode === "3d" ? nv.sliceTypeRender : nv.sliceTypeMultiplanar);
+  const anat = nv.volumes && nv.volumes[0];
+  if (anat) {
+    const want = mode === "3d" ? 0 : 1;
+    // Only rebuild GL textures when the anat visibility actually changes (e.g.
+    // entering/leaving 3D). In 2D the anat stays at opacity 1, so this is a
+    // no-op and we avoid a needless updateGLVolume.
+    if ((anat.opacity ?? 1) !== want) {
+      anat.opacity = want;
+      nv.updateGLVolume?.();
+    }
+  }
+  nv.drawScene?.();
 }
 
 // Read the anatomical volume's per-axis slice counts (RAS-oriented when
@@ -60,7 +147,7 @@ function readCrosshair(nv: Niivue | null): [number, number, number] {
   return [cp[0], cp[1], cp[2]];
 }
 
-export default function VolumeViewer({ anatUrl, segUrl, mode, segLut }: VolumeViewerProps) {
+export default function VolumeViewer({ anatUrl, segUrl, mode, segLayers }: VolumeViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const nvRef = useRef<Niivue | null>(null);
   const attachedRef = useRef(false);
@@ -161,13 +248,12 @@ export default function VolumeViewer({ anatUrl, segUrl, mode, segLut }: VolumeVi
         if (cancelled) {
           return;
         }
-        // Recolor the freshly loaded overlay before the first paint so it never
-        // flashes the default scalar colors. The dedicated [segLut] effect below
-        // keeps it in sync on later edits.
-        applySegLut(nv, segLut);
-        nv.setSliceType(
-          mode === "3d" ? nv.sliceTypeRender : nv.sliceTypeMultiplanar,
-        );
+        // Recolor (and grow/shrink the region overlays for) the freshly loaded
+        // overlay before the first paint so it never flashes the default scalar
+        // colors and initial region layers render immediately. The dedicated
+        // effects below keep it in sync on later edits.
+        reconcileSegLayers(nv, segLayers);
+        applyViewMode(nv, mode === "3d" ? "3d" : "slices");
         // Seed the sliders from the loaded volume, and keep them in sync when the
         // user clicks directly on a slice (which still recenters the crosshair).
         setSliceCounts(readSliceCounts(nv));
@@ -193,26 +279,49 @@ export default function VolumeViewer({ anatUrl, segUrl, mode, segLut }: VolumeVi
     return () => {
       cancelled = true;
     };
-    // mode and segLut are handled by their own effects; only reload when the
+    // mode and segLayers are handled by their own effects; only reload when the
     // data URLs change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [anatUrl, segUrl]);
 
-  // Live-recolor the segmentation overlay whenever the LUT changes (region menu
-  // edits, base-color picks). Guarded so it no-ops until the seg volume exists;
-  // the load effect applies the initial LUT itself, so this only handles later
-  // updates without reloading any volume.
+  // HEAVY path: when the set of layers or any LUT's identity changes (region
+  // toggled on/off, color/base-color edited), add/remove the cloned region
+  // overlays and reupload every LUT + opacity. Guarded so it no-ops until the
+  // seg volume exists; the load effect runs the initial reconcile itself, so
+  // this only handles later structural/color updates without reloading volumes.
+  const structureSig = layerStructureSignature(segLayers);
   useEffect(() => {
-    applySegLut(nvRef.current, segLut);
-  }, [segLut]);
+    reconcileSegLayers(nvRef.current, segLayers);
+    // segLayers identity tracks via structureSig; opacity-only changes are
+    // handled by the light path below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [structureSig]);
 
-  // Switch between multiplanar (2D) and render (3D) without reloading volumes.
+  // LIGHT path: when ONLY opacities change (dragging a region/whole-brain
+  // slider), just set v.opacity on the existing overlays and redraw — no
+  // updateGLVolume, no clone/remove — so the drag stays smooth. The heavy effect
+  // above has already created/destroyed any overlays for the current structure,
+  // so indices 1.. all exist here.
+  const opacitySig = layerOpacitySignature(segLayers);
   useEffect(() => {
     const nv = nvRef.current;
-    if (!nv) {
+    if (!nv || !nv.volumes || nv.volumes.length < 2 || !segLayers) {
       return;
     }
-    nv.setSliceType(mode === "3d" ? nv.sliceTypeRender : nv.sliceTypeMultiplanar);
+    for (let i = 0; i < segLayers.length; i++) {
+      const v = nv.volumes[1 + i];
+      if (v) {
+        v.opacity = segLayers[i].opacity;
+      }
+    }
+    nv.drawScene?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [opacitySig]);
+
+  // Switch between multiplanar (2D) and render (3D) without reloading volumes.
+  // Also toggles the anat skull/face off in 3D (see applyViewMode).
+  useEffect(() => {
+    applyViewMode(nvRef.current, mode === "3d" ? "3d" : "slices");
   }, [mode]);
 
   // Move one plane to an absolute fractional position and repaint. Mutates the
@@ -238,7 +347,7 @@ export default function VolumeViewer({ anatUrl, segUrl, mode, segLut }: VolumeVi
   const showSliders = mode === "slices" && !loading && !error;
 
   return (
-    <div className="volume-viewer">
+    <div className={`volume-viewer mode-${mode}`}>
       <div className="volume-canvas-wrap">
         <canvas ref={canvasRef} style={{ width: "100%", height: "100%" }} />
         {loading && (

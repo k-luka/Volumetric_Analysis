@@ -803,6 +803,8 @@ button:disabled {
 }
 
 .canvas-panel {
+  display: flex;
+  flex-direction: column;
   overflow: auto;
   padding: 16px;
   background: var(--canvas);
@@ -1055,6 +1057,13 @@ button:disabled {
 
 .structure-volume-shell {
   margin-top: 10px;
+  /* Fill the center panel down to the bottom (like the 3D viewer) instead of
+     capping at a fixed height; the body scrolls internally when there are more
+     rows than fit. */
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -1084,7 +1093,8 @@ button:disabled {
 }
 
 .structure-volume-body {
-  max-height: clamp(260px, calc(100vh - 450px), 560px);
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
@@ -1133,7 +1143,7 @@ button:disabled {
 
 .center-view-switch {
   display: inline-grid;
-  grid-template-columns: repeat(2, minmax(110px, 1fr));
+  grid-template-columns: repeat(3, minmax(78px, 1fr));
   gap: 2px;
   padding: 2px;
   border: 1px solid var(--line);
@@ -1158,14 +1168,27 @@ button:disabled {
   color: #fff;
 }
 
+.center-view-switch button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .center-view-panel {
   margin-top: 10px;
+  /* Fill the remaining height of the center panel so the viewer is as tall as
+     the space allows (instead of leaving empty space below it). */
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .qc-panel {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .qc-selector {
@@ -1215,57 +1238,8 @@ button:disabled {
   display: flex;
   align-items: stretch;
   gap: 12px;
-}
-
-/* The viewer-mode buttons live in the far-left "Scans & output" panel: a row of
-   three compact icon + label tiles that switch the segmentation viewer. */
-.viewer-mode-rail {
-  display: flex;
-  gap: 6px;
-}
-
-.viewer-mode-button {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  min-height: 50px;
-  padding: 8px 4px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-sm);
-  background: var(--field);
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.viewer-mode-button:hover:not(:disabled) {
-  border-color: var(--blue);
-  background: var(--field-hover);
-  color: var(--ink);
-}
-
-.viewer-mode-button.active {
-  border-color: var(--blue);
-  background: var(--blue);
-  color: #fff;
-}
-
-.viewer-mode-button:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-.viewer-mode-hint {
-  width: 100%;
-  margin: 4px 0 0;
-  color: var(--muted);
-  font-size: 10px;
-  line-height: 1.3;
-  text-align: center;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .viewer-stage {
@@ -1297,6 +1271,24 @@ button:disabled {
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
+}
+
+/* In Slices mode keep each of the three planes SQUARE (constrain the canvas to
+   a 3:1 row of square tiles) and SHRINK the viewer to just the canvas + sliders
+   so the black backdrop ends right at the sliders instead of trailing a tall
+   black box below them (which looked bad, especially in light mode). The empty
+   space below shows the panel background. 3D keeps the fill-height behavior
+   (the default .viewer-stage .volume-viewer + .volume-canvas-wrap rules). */
+.viewer-stage .volume-viewer.mode-slices {
+  flex: 0 0 auto;
+  min-height: 0;
+}
+
+.volume-viewer.mode-slices .volume-canvas-wrap {
+  flex: 0 0 auto;
+  width: 100%;
+  aspect-ratio: 3 / 1;
+  max-height: 100%;
 }
 
 .viewer-stage .volume-loading {
@@ -1443,23 +1435,26 @@ button:disabled {
 }
 
 .region-panel-close {
-  width: 22px;
-  height: 22px;
-  display: flex;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--line-strong);
+  border: none;
   border-radius: var(--radius-sm);
-  background: var(--field);
+  background: transparent;
   color: var(--muted);
-  font-size: 15px;
-  line-height: 1;
   cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
 }
 
 .region-panel-close:hover {
-  border-color: var(--blue);
+  background: var(--field-hover);
   color: var(--ink);
+}
+
+.region-panel-close:active {
+  background: var(--field);
 }
 
 .region-base-row {
@@ -1475,15 +1470,154 @@ button:disabled {
   font-weight: 600;
 }
 
-.region-color-input {
-  width: 30px;
-  height: 24px;
+/* Trigger swatch for the custom color picker popover (replaces the native
+   <input type="color">). The button's background IS the current color. */
+.color-field-trigger {
+  width: 22px;
+  height: 22px;
   padding: 0;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
-  background: var(--field);
   cursor: pointer;
   flex: 0 0 auto;
+}
+
+.color-field-trigger:hover {
+  border-color: var(--blue);
+}
+
+.color-field-trigger:focus-visible {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 1px var(--blue-soft);
+}
+
+/* The custom color picker popover. Fixed-positioned (from the trigger's rect)
+   so the region list's overflow can't clip it; stacked above the region panel
+   (z-index ~5). */
+.color-popover {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 212px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-strong);
+  box-shadow: var(--shadow);
+  z-index: 50;
+}
+
+/* Saturation/value square. The hue layer is supplied inline; the two gradients
+   here add the white (left->right) and black (bottom->top) ramps. */
+.color-sv {
+  position: relative;
+  height: 120px;
+  border-radius: var(--radius-sm);
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.color-sv-thumb {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.color-hue {
+  width: 100%;
+  height: 14px;
+  margin: 0;
+  cursor: pointer;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+
+.color-hue::-webkit-slider-runnable-track {
+  height: 10px;
+  border-radius: 5px;
+  background: linear-gradient(to right, red, #ff0, #0f0, #0ff, #00f, #f0f, red);
+}
+
+.color-hue::-moz-range-track {
+  height: 10px;
+  border-radius: 5px;
+  background: linear-gradient(to right, red, #ff0, #0f0, #0ff, #00f, #f0f, red);
+}
+
+.color-hue::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -2px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+  background: var(--blue);
+  cursor: pointer;
+}
+
+.color-hue::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+  background: var(--blue);
+  cursor: pointer;
+}
+
+.color-hex {
+  width: 100%;
+  padding: 5px 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--field);
+  color: var(--ink);
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+.color-hex:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 1px var(--blue-soft);
+}
+
+.color-opacity-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.color-opacity-row .region-opacity {
+  flex: 1 1 auto;
+  width: auto;
+}
+
+.color-eyedropper {
+  align-self: flex-start;
+  padding: 5px 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--field);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.color-eyedropper:hover {
+  border-color: var(--blue);
+  color: var(--ink);
 }
 
 .region-reset {
@@ -1529,9 +1663,25 @@ button:disabled {
 
 .region-row {
   display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 3px 0;
+}
+
+.region-row-main {
+  display: flex;
   align-items: center;
   gap: 8px;
-  padding: 3px 0;
+}
+
+/* Small "Opacity" caption inside the color picker popover's opacity row. */
+.region-opacity-label {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .region-check {
@@ -1547,6 +1697,64 @@ button:disabled {
   color: var(--ink);
   font-size: 12px;
   cursor: pointer;
+}
+
+/* Compact opacity slider for the whole-brain row and each visible region row.
+   Fixed width so it never pushes the 248px panel wide; the region name flexes
+   and shrinks (min-width:0 above) to make room. */
+.region-opacity {
+  flex: 0 0 64px;
+  width: 64px;
+  height: 16px;
+  margin: 0;
+  cursor: pointer;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+
+.region-opacity::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line-strong);
+}
+
+.region-opacity::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line-strong);
+}
+
+.region-opacity::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -4px;
+  border-radius: 50%;
+  border: none;
+  background: var(--blue);
+  cursor: pointer;
+}
+
+.region-opacity::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: none;
+  background: var(--blue);
+  cursor: pointer;
+}
+
+.region-opacity-value {
+  flex: 0 0 auto;
+  min-width: 30px;
+  text-align: right;
+  color: var(--muted);
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 500;
 }
 
 .qc-panel figure {

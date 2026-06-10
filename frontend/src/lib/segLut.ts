@@ -53,7 +53,35 @@ const FALLBACK_RGB: [number, number, number] = [128, 128, 128];
 
 // key = region.key; color = "#rrggbb". `on` toggles whether the region is
 // painted with its color (true) or left at the base color (false / absent).
-export type RegionSelection = Record<string, { on: boolean; color: string }>;
+// `opacity` (0..1, optional) is the per-region transparency used by the
+// multi-overlay renderer (see buildSegLayers); it is IGNORED by buildSegLut,
+// which only produces colors, so existing { on, color } callers keep working.
+export type RegionSelection = Record<string, { on: boolean; color: string; opacity?: number }>;
+
+// One overlay volume's worth of the segmentation render. `lut` is the flat
+// NiiVue label LUT for that overlay and `opacity` is the single per-overlay
+// alpha multiplier NiiVue applies on the GPU.
+//
+// WHY one layer PER selected region instead of a single LUT: NiiVue's atlas
+// fragment shader BINARIZES per-label alpha (`if (clr.a > 0.0) clr.a = 1.0;
+// clr.a *= opacity`), where `opacity` is ONE uniform PER overlay volume. So a
+// label's transparency CANNOT come from its LUT alpha — every non-zero-alpha
+// label renders fully opaque, then is scaled by the overlay's single opacity.
+// To give each selected region its OWN graduated transparency, each region must
+// live in its own overlay volume with its own `opacity`. buildSegLayers returns:
+// a BASE layer that paints everything EXCEPT the selected regions (so the base's
+// opacity dims the unselected brain), then one layer per selected region (only
+// that region's labels painted) whose opacity dims just that region. Labels are
+// one-per-voxel, so the overlays never overlap and their draw order is
+// irrelevant to correctness.
+export type SegLayer = { key: string; lut: Uint8ClampedArray; opacity: number };
+
+function clamp01(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 1;
+  }
+  return value < 0 ? 0 : value > 1 ? 1 : value;
+}
 
 /**
  * Parse a "#rrggbb" / "#rgb" hex color into an [r, g, b] byte triple.
@@ -138,4 +166,88 @@ export function buildSegLut(
   }
 
   return lut;
+}
+
+/**
+ * Build the per-overlay seg layers for graduated per-region opacity.
+ *
+ * Returns an array whose first element is ALWAYS the BASE overlay and whose
+ * remaining elements are one overlay per selected region (in catalog order):
+ *
+ *  - Layer 0 ("base"): index 0 = [0,0,0,0]; every label 1..maxLabel = baseColor
+ *    RGB + BASE_ALPHA, EXCEPT labels belonging to a selected (on === true)
+ *    region, which are set fully transparent [0,0,0,0] so that region's own
+ *    overlay shows through to the anatomy below. Its overlay opacity is
+ *    `baseOpacity`.
+ *  - One layer per selected region: index 0 transparent, ALL labels transparent
+ *    EXCEPT this region's in-range labels = region color RGB + REGION_ALPHA.
+ *    Its overlay opacity is clamp01(selection[key].opacity ?? 1).
+ *
+ * See the SegLayer doc comment for why opacity must come from per-overlay
+ * `opacity` rather than LUT alpha. With every opacity at 1 this renders
+ * identically to the single-LUT buildSegLut output (base paints unselected,
+ * regions paint selected, same colors).
+ */
+export function buildSegLayers(
+  regions: AtlasRegion[],
+  selection: RegionSelection,
+  baseColor: string,
+  maxLabel: number = SEG_MAX_LABEL,
+  baseOpacity: number = 1,
+): SegLayer[] {
+  const inRange = (label: number): boolean =>
+    Number.isInteger(label) && label >= 1 && label <= maxLabel;
+
+  // BASE layer: uniform base color everywhere except selected regions (which are
+  // punched transparent so their dedicated overlay composites over anatomy).
+  const baseLut = new Uint8ClampedArray((maxLabel + 1) * 4);
+  const [br, bg, bb] = hexToRgb(baseColor);
+  for (let i = 1; i <= maxLabel; i++) {
+    const off = i * 4;
+    baseLut[off] = br;
+    baseLut[off + 1] = bg;
+    baseLut[off + 2] = bb;
+    baseLut[off + 3] = BASE_ALPHA;
+  }
+  for (const region of regions) {
+    const sel = selection[region.key];
+    if (!sel || sel.on !== true) {
+      continue;
+    }
+    for (const label of region.labels) {
+      if (!inRange(label)) {
+        continue;
+      }
+      const off = label * 4;
+      baseLut[off] = 0;
+      baseLut[off + 1] = 0;
+      baseLut[off + 2] = 0;
+      baseLut[off + 3] = 0;
+    }
+  }
+
+  const layers: SegLayer[] = [{ key: "base", lut: baseLut, opacity: clamp01(baseOpacity) }];
+
+  // One overlay per selected region: only that region's labels are painted.
+  for (const region of regions) {
+    const sel = selection[region.key];
+    if (!sel || sel.on !== true) {
+      continue;
+    }
+    const lut = new Uint8ClampedArray((maxLabel + 1) * 4);
+    const [rr, rg, rb] = hexToRgb(sel.color);
+    for (const label of region.labels) {
+      if (!inRange(label)) {
+        continue;
+      }
+      const off = label * 4;
+      lut[off] = rr;
+      lut[off + 1] = rg;
+      lut[off + 2] = rb;
+      lut[off + 3] = REGION_ALPHA;
+    }
+    layers.push({ key: region.key, lut, opacity: clamp01(sel.opacity ?? 1) });
+  }
+
+  return layers;
 }

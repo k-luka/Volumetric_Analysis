@@ -145,7 +145,7 @@ export function InspectorPanel({
           <span>Download PDF</span>
           <em>{activeReport?.artifacts.pdf ? "ready" : "missing"}</em>
         </button>
-        <p className="artifact-note">View the segmentation in the “Segmentation check” tab.</p>
+        <p className="artifact-note">View the segmentation in the Slices or 3D view above the result.</p>
       </section>
 
       <section className="panel-section">
