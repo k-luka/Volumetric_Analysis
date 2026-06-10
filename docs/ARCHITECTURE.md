@@ -84,12 +84,26 @@ Main API groups:
 
 | File | Responsibility |
 | --- | --- |
-| `frontend/src/App.tsx` | App orchestration: defaults, validation, run creation, SSE progress, report loading, runtime readiness, theme state. |
+| `frontend/src/App.tsx` | App orchestration shell: wires the hooks below together, owns top-level layout and notice state. Run/report/folder/runtime/theme logic lives in `hooks/`, not inline. |
+| `frontend/src/hooks/useRunStream.ts` | Run creation and SSE progress streaming (start run, parse events, track per-scan progress). |
+| `frontend/src/hooks/useReports.ts` | Saved-report list loading and selection. |
+| `frontend/src/hooks/useFolderSelection.ts` | Input/output folder selection state and validation. |
+| `frontend/src/hooks/useRuntimeChecks.ts` | Runtime readiness checks (`GET /api/checks`). |
+| `frontend/src/hooks/useAtlasCatalog.ts` | Atlas region catalog loading (`GET /api/atlas/regions`). |
+| `frontend/src/hooks/useTheme.ts` | Persisted light/dark theme state. |
 | `frontend/src/lib/api.ts` | Typed API wrapper and artifact/download helpers. |
+| `frontend/src/lib/runProgress.ts` | Run-progress helpers: SSE event parsing, payload extraction, error/validation message formatting, idle/clamp utilities. |
+| `frontend/src/lib/color.ts` | Color-space conversion helpers (hex↔HSV) for the region color picker. |
+| `frontend/src/lib/regionColors.ts` | Default region color palette and per-index color assignment. |
 | `frontend/src/types.ts` | Frontend API and UI state types. |
 | `frontend/src/components/TopBar.tsx` | App top bar and persisted light/dark toggle. |
 | `frontend/src/components/SetupPanel.tsx` | Input/output folder selection, recursive/device controls, runtime row, validate/run actions. |
-| `frontend/src/components/ResultsCanvas.tsx` | Main results surface, progress bar, scan rows, metadata, structure/QC segmented detail view. |
+| `frontend/src/components/ResultsCanvas.tsx` | Main results surface: progress bar, scan rows, metadata, structure/QC segmented detail view. Detail subviews live in `components/results/`. |
+| `frontend/src/components/results/StructureTable.tsx` | Per-structure volume table for the selected scan. |
+| `frontend/src/components/results/RegionPanel.tsx` | Region list with visibility/color controls for the overlay. |
+| `frontend/src/components/results/ColorField.tsx` | App-themed color-picker popover (SV square + hue slider + hex input + opacity). |
+| `frontend/src/components/results/QcViewer.tsx` | QC image/segmented detail view. |
+| `frontend/src/components/results/RunProgressInline.tsx` | Inline run-progress display within the results surface. |
 | `frontend/src/components/InspectorPanel.tsx` | Saved reports, artifact/download actions, runtime diagnostics, run logs/status. |
 | `frontend/src/components/VolumeViewer.tsx` | Interactive 2D/3D segmentation viewer (NiiVue): renders MGZ anat + seg overlay with Montage/Slices/3D modes and per-plane slice sliders, backed by the `volume/{subject}/{kind}` and `atlas/regions` routes. |
 | `frontend/src/lib/segLut.ts` | Builds the per-label color lookup table for the segmentation overlay. |
