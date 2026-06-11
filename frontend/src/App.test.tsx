@@ -1,7 +1,20 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
-import { createRunEventSource, getChecks, getDefaults, getReport, getRun, selectFiles, startRun, validateOutput, validateScans } from "./lib/api";
+import {
+  createRunEventSource,
+  getChecks,
+  getDefaults,
+  getReport,
+  getReports,
+  getRun,
+  openResultsFolder,
+  selectDirectory,
+  selectFiles,
+  startRun,
+  validateOutput,
+  validateScans,
+} from "./lib/api";
 
 vi.mock("./lib/api", () => ({
   apiUrl: (path: string) => path,
@@ -14,6 +27,7 @@ vi.mock("./lib/api", () => ({
   getRun: vi.fn(),
   openArtifact: vi.fn(),
   openDownload: vi.fn(),
+  openResultsFolder: vi.fn(),
   selectDirectory: vi.fn(),
   selectFiles: vi.fn(),
   startRun: vi.fn(),
@@ -110,6 +124,77 @@ describe("App run flow", () => {
 
     expect(await screen.findByText("No result loaded")).toBeInTheDocument();
     expect(screen.queryByText("Subject")).not.toBeInTheDocument();
+    expect(getReport).not.toHaveBeenCalled();
+  });
+
+  it("opens an existing results folder and lands in its newest report", async () => {
+    const summary = {
+      id: "hpc-report",
+      name: "brain_volumes_hpc.xlsx",
+      outputDir: "/hpc/results",
+      reportPath: "/hpc/results/reports/brain_volumes_hpc.xlsx",
+      modified: 2,
+      source: "saved" as const,
+      temporary: false,
+    };
+    vi.mocked(selectDirectory).mockResolvedValue({ selected: true, path: "/hpc/results", message: null });
+    vi.mocked(openResultsFolder).mockResolvedValue({ folders: ["/hpc/results"], reports: [summary] });
+    vi.mocked(getReports).mockResolvedValue([summary]);
+    vi.mocked(getReport).mockResolvedValue({
+      id: summary.id,
+      summary,
+      metadata: {
+        modified: 2,
+        source: "saved",
+        inputDir: null,
+        outputDir: "/hpc/results",
+        reportPath: summary.reportPath,
+        device: null,
+        runState: null,
+        runId: null,
+        temporary: false,
+      },
+      scan: { subject: "case01", filename: "case01.nii.gz", spacing: "1 x 1 x 1" },
+      rows: [
+        {
+          filename: "case01.nii.gz",
+          path: "/hpc/scans/case01.nii.gz",
+          subject_id: "case01",
+          input_spacing_mm: "1 x 1 x 1",
+          segmentation_spacing_mm: "1 x 1 x 1",
+          voxel_count: 1000,
+          volume_mm3: 1000,
+          volume_ml: 1,
+          status: "ok",
+          error: "",
+        },
+      ],
+      metrics: [],
+      structures: [],
+      qc: [],
+      artifacts: { xlsx: null, pdf: null, color: null },
+    });
+
+    render(<App />);
+    await screen.findByText("No result loaded");
+
+    fireEvent.click(screen.getByRole("button", { name: /open results folder/i }));
+
+    await waitFor(() => expect(openResultsFolder).toHaveBeenCalledWith("/hpc/results"));
+    await waitFor(() => expect(getReport).toHaveBeenCalledWith("hpc-report"));
+    expect(await screen.findByText("case01.nii.gz")).toBeInTheDocument();
+  });
+
+  it("surfaces a notice when the chosen folder has no results", async () => {
+    vi.mocked(selectDirectory).mockResolvedValue({ selected: true, path: "/hpc/empty", message: null });
+    vi.mocked(openResultsFolder).mockRejectedValue(new Error("No results were found in /hpc/empty."));
+
+    render(<App />);
+    await screen.findByText("No result loaded");
+
+    fireEvent.click(screen.getByRole("button", { name: /open results folder/i }));
+
+    expect(await screen.findByText(/No results were found/)).toBeInTheDocument();
     expect(getReport).not.toHaveBeenCalled();
   });
 

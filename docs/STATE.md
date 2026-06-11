@@ -1,6 +1,96 @@
 # Project State
 
-Last updated: 2026-06-06
+Last updated: 2026-06-10
+
+## HiPerGator Validation (2026-06-10)
+
+The HPC backend is validated end-to-end on a real GPU node. What ran:
+
+- **Image:** `/blue/pinaki.sarder/kirill.luka/containers/volumetric-analysis_cuda-v2.4.2.sif`
+  (already built and in place on HiPerGator; FastSurfer reports `2.4.2+7e53343`
+  at `/fastsurfer/run_fastsurfer.sh`). Apptainer 1.4.5 is on PATH on compute
+  nodes without a module load (the `module load apptainer` in `job.sh` is
+  harmless either way).
+- **Real submission:** Slurm job `34335883` via `deploy/wizard/submit_job.sh`
+  (answers piped, then confirmed) — account `pinaki.sarder`, partition
+  `hpg-turin`, 1× **L4** GPU, 4 CPU / 32 GB / 4 h requested. The job started
+  within seconds, ran one tutorial scan (`140_orig.nii.gz`, the FreeSurfer
+  buckner subject converted from `orig.mgz`), and **COMPLETED in 3 min 5 s**
+  wall-clock. GPU inference: ~7.5 s per plane (vs ~3.5 min/plane on CPU).
+- **Outputs verified** at `/blue/pinaki.sarder/kirill.luka/test_data/out_l4_job/`:
+  `reports/brain_volumes_20260610_223709.xlsx`, `qc/140_orig_color.png`,
+  `example_segmentation.mgz`, `example_qc_color.png`,
+  `runs/20260610_223709/fastsurfer/140_orig/{mri,stats}/…` — matches the local
+  app's output shape. `--mail-user` was set; Slurm email goes out on END/FAIL.
+- **Scaffolding assumptions confirmed:** account `pinaki.sarder` (QoS
+  `pinaki.sarder` / burst `pinaki.sarder-b`) and partition `hpg-turin`
+  (nodes carry `gpu:l4:3`) are real and current. Bind of `/blue` works; the
+  dead paths in the bind list (`/ufrc`) are skipped by the existence check.
+- **OOD sandbox app validated headlessly (2026-06-10):** the batch app is
+  symlinked at `~/ondemand/dev/brain_volume_analysis`. All three ERB templates
+  render to valid YAML/bash (including with blank optional fields), the form's
+  `cluster: "hipergator"` matches the real Slurm `ClusterName`, and the
+  rendered `script.sh.erb` submitted with the exact `native` sbatch args from
+  `submit.yml.erb` ran as job `34337716` → COMPLETED in 3 min 4 s with correct
+  outputs. The only untested step is the literal browser form (open
+  https://ood.rc.ufl.edu → Develop → My Sandbox Apps and submit once).
+
+## Review Mode (2026-06-10)
+
+The app can now review results it didn't produce — the bridge between HPC
+execution and the local viewer:
+
+- Backend: `POST /api/reports/open-folder` accepts a results folder (or its
+  `reports/` subfolder, or a parent holding several results folders one level
+  down), registers it in `REVIEW_DIRS`, and returns the report summaries.
+  Registered reports load through all existing report routes (detail, QC PNG,
+  anat/seg `.mgz`, xlsx/pdf downloads) without a run.
+- Frontend: "Open results folder…" button in the Reports panel (native folder
+  picker → open → newest report loads). `?dev` hook gained
+  `__bvDev.openResultsFolder(path)` for automation.
+- Verified end-to-end on HiPerGator against the real L4 job output
+  (`test_data/out_l4_job`): rows, metrics, 16 structure regions, QC PNG,
+  both `.mgz` volumes, and xlsx/pdf downloads all served. 58 backend tests
+  (5 new) and 135 frontend tests (2 new) pass.
+- Note: the `vol-analysis` env on HiPerGator was missing `fastapi`/`uvicorn`
+  (test_web silently skipped); `pip install -r requirements.txt` fixed it.
+
+⚠️ **B200 nodes cannot run this image's bundled torch on GPU.** The
+FastSurfer cuda-v2.4.2 base ships torch 2.6.0+cu126 built for sm_50–sm_90;
+B200 is sm_100, and any CUDA kernel fails with "no kernel image is
+available". `torch.cuda.is_available()` still returns `True`, so don't trust
+that check alone. L4 (sm_89, hpg-turin) and A100 (sm_80) are fine with the
+current image.
+
+**Working B200 workaround (validated 2026-06-10):** shadow the container's
+torch with a cu128 build installed on `/blue` — no image rebuild needed:
+
+```bash
+# one-time install (uses the container's own pip, targets a /blue dir):
+apptainer exec <sif> python -m pip install \
+  --target=/blue/pinaki.sarder/kirill.luka/torch_cu128 \
+  --index-url https://download.pytorch.org/whl/cu128 "torch==2.7.1"
+apptainer exec <sif> python -m pip install \
+  --target=/blue/pinaki.sarder/kirill.luka/torch_cu128 --no-deps \
+  --index-url https://download.pytorch.org/whl/cu128 "torchvision==0.22.1"
+
+# then run with the shadow dir prepended (run from the repo root —
+# --env PYTHONPATH replaces the image's /opt/volumetric-analysis entry, and
+# `python -m` falls back to importing volumetric_analysis from the cwd):
+apptainer exec --nv --bind /blue \
+  --env PYTHONPATH=/blue/pinaki.sarder/kirill.luka/torch_cu128 \
+  <sif> python -m volumetric_analysis.run \
+  input_dir=… output_dir=… \
+  fastsurfer.install_if_missing=false \
+  fastsurfer.executable=/fastsurfer/run_fastsurfer.sh fastsurfer.device=cuda
+```
+
+Validated on a B200 node (`c1101a-s15`): inference ~1.4–1.8 s/plane
+(vs ~7.5 s/plane on L4, ~3.5 min/plane CPU), 121 s wall per scan, volumes
+match the L4 run to 0.1 mL. The matching torchvision 0.22.1+cu128 is
+required because FastSurfer imports torchvision and the image's 0.21+cu126
+is ABI-tied to torch 2.6. The shadow dir is ~6 GB. The clean long-term fix
+is still an image rebuilt on a cu128/sm_100-capable torch.
 
 ## Current Direction
 

@@ -19,6 +19,11 @@ export type ReportSummary = {
   temporary: boolean;
 };
 
+export type OpenResultsFolderResponse = {
+  folders: string[];
+  reports: ReportSummary[];
+};
+
 export type DefaultsResponse = {
   inputDir: string;
   outputDir: string;

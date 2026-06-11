@@ -36,6 +36,7 @@ def write_test_scan(path: Path) -> None:
 class WebApiTest(unittest.TestCase):
     def setUp(self) -> None:
         web.RUNS.clear()
+        web.REVIEW_DIRS.clear()
         self.client = TestClient(web.create_app())
 
     def test_defaults_returns_local_paths_and_reports(self) -> None:
@@ -436,6 +437,92 @@ class WebApiTest(unittest.TestCase):
                     time.sleep(0.05)
 
         self.assertEqual(captured["output_dir"], str(output_dir.resolve()))
+
+    def _write_external_report(self, output_dir: Path, subject: str = "scan") -> Path:
+        """Write a report into output_dir WITHOUT registering it in RUNS, like an
+        HPC run that happened in another process."""
+        return write_report(
+            [
+                {
+                    "filename": f"{subject}.nii.gz",
+                    "path": str(output_dir / f"{subject}.nii.gz"),
+                    "subject_id": subject,
+                    "input_spacing_mm": "1 x 1 x 1",
+                    "segmentation_spacing_mm": "1 x 1 x 1",
+                    "voxel_count": 1000,
+                    "volume_mm3": 1000.0,
+                    "volume_ml": 1.0,
+                    "status": "ok",
+                    "error": "",
+                }
+            ],
+            output_dir,
+            "brain_volumes",
+            "hpc",
+        )
+
+    def test_external_report_is_unknown_until_folder_is_opened(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report_path = self._write_external_report(Path(tmp))
+            identifier = web.report_id(report_path)
+
+            self.assertEqual(self.client.get(f"/api/reports/{identifier}").status_code, 404)
+
+            opened = self.client.post("/api/reports/open-folder", json={"path": tmp})
+            self.assertEqual(opened.status_code, 200)
+
+            self.assertEqual(self.client.get(f"/api/reports/{identifier}").status_code, 200)
+
+    def test_open_results_folder_lists_and_loads_reports(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report_path = self._write_external_report(Path(tmp), subject="case01")
+
+            response = self.client.post("/api/reports/open-folder", json={"path": tmp})
+
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            self.assertEqual(len(data["reports"]), 1)
+            summary = data["reports"][0]
+            self.assertEqual(summary["name"], report_path.name)
+            self.assertEqual(summary["source"], "saved")
+
+            listed = self.client.get("/api/reports").json()
+            self.assertIn(summary["id"], [item["id"] for item in listed])
+
+            detail = self.client.get(f"/api/reports/{summary['id']}")
+            self.assertEqual(detail.status_code, 200)
+            self.assertEqual(detail.json()["rows"][0]["subject_id"], "case01")
+
+    def test_open_results_folder_accepts_reports_subfolder(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write_external_report(Path(tmp))
+
+            response = self.client.post("/api/reports/open-folder", json={"path": str(Path(tmp) / "reports")})
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(len(response.json()["reports"]), 1)
+
+    def test_open_results_folder_discovers_result_folders_one_level_down(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write_external_report(Path(tmp) / "run_a", subject="a")
+            self._write_external_report(Path(tmp) / "run_b", subject="b")
+            (Path(tmp) / "unrelated").mkdir()
+
+            response = self.client.post("/api/reports/open-folder", json={"path": tmp})
+
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            self.assertEqual(len(data["folders"]), 2)
+            self.assertEqual(len(data["reports"]), 2)
+
+    def test_open_results_folder_rejects_missing_or_empty_folders(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            missing = self.client.post("/api/reports/open-folder", json={"path": str(Path(tmp) / "nope")})
+            self.assertEqual(missing.status_code, 404)
+
+            empty = self.client.post("/api/reports/open-folder", json={"path": tmp})
+            self.assertEqual(empty.status_code, 400)
+            self.assertIn("No results were found", empty.json()["detail"])
 
     def _stage_run_volumes(self, output_dir: Path, subject: str, *, anat: bool = True, seg: bool = True) -> Path:
         """Write a report under output_dir and stage fastsurfer .mgz files for subject."""

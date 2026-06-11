@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { getDefaults, getReport, getReports, startRun } from "./lib/api";
+import { getDefaults, getReport, getReports, openResultsFolder, selectDirectory, startRun } from "./lib/api";
 import { errorText, folderValidationMessage } from "./lib/runProgress";
 import { useTheme } from "./hooks/useTheme";
 import { useReports } from "./hooks/useReports";
@@ -17,6 +17,7 @@ export default function App() {
   const [defaults, setDefaults] = useState<DefaultsResponse | null>(null);
   const [deviceChoice, setDeviceChoice] = useState("auto");
   const [notice, setNotice] = useState<string | null>(null);
+  const [isOpeningResultsFolder, setIsOpeningResultsFolder] = useState(false);
   const recursive = false;
 
   const reportsApi = useReports();
@@ -97,6 +98,12 @@ export default function App() {
         setValidation(null);
       },
       openReport: openDevReport,
+      // Review mode without the native picker: register a results folder by
+      // path, then land in its newest report.
+      openResultsFolder: async (path: string) => {
+        const opened = await openResultsFolder(path);
+        return openDevReport(opened.reports[0]?.id);
+      },
     };
     (window as unknown as { __bvDev?: typeof hook }).__bvDev = hook;
     // eslint-disable-next-line no-console
@@ -229,6 +236,25 @@ export default function App() {
     }
   }
 
+  // Review mode: open an existing results folder (e.g. downloaded HPC output)
+  // and land in its newest report without running anything.
+  async function onOpenResultsFolder() {
+    setNotice(null);
+    setIsOpeningResultsFolder(true);
+    try {
+      const picked = await selectDirectory(outputDir, "Open results folder");
+      if (!picked.selected || !picked.path) {
+        return;
+      }
+      const opened = await openResultsFolder(picked.path);
+      await refreshReports(opened.reports[0]?.id ?? null);
+    } catch (error) {
+      setNotice(errorText(error));
+    } finally {
+      setIsOpeningResultsFolder(false);
+    }
+  }
+
   return (
     <div className={`app-root ${theme === "light" ? "theme-light" : ""}`}>
       <TopBar theme={theme} onToggleTheme={toggleTheme} />
@@ -270,9 +296,11 @@ export default function App() {
           runtimeReadiness={runtimeReadiness}
           isCheckingRuntime={isCheckingRuntime}
           deviceChoice={deviceChoice}
+          isOpeningResultsFolder={isOpeningResultsFolder}
           onCheckRuntime={onCheckRuntime}
           onOpenReport={onOpenReport}
           onReportsRefresh={onReportsRefresh}
+          onOpenResultsFolder={onOpenResultsFolder}
         />
       </main>
     </div>

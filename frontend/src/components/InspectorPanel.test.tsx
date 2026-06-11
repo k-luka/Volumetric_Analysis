@@ -126,7 +126,9 @@ describe("InspectorPanel", () => {
         isCheckingRuntime={false}
         onCheckRuntime={vi.fn()}
         onOpenReport={onOpenReport}
+        isOpeningResultsFolder={false}
         onReportsRefresh={vi.fn()}
+        onOpenResultsFolder={vi.fn()}
       />,
     );
 
@@ -148,7 +150,9 @@ describe("InspectorPanel", () => {
         isCheckingRuntime={false}
         onCheckRuntime={vi.fn()}
         onOpenReport={vi.fn()}
+        isOpeningResultsFolder={false}
         onReportsRefresh={vi.fn()}
+        onOpenResultsFolder={vi.fn()}
       />,
     );
 
@@ -170,7 +174,9 @@ describe("InspectorPanel", () => {
         isCheckingRuntime={false}
         onCheckRuntime={vi.fn()}
         onOpenReport={vi.fn()}
+        isOpeningResultsFolder={false}
         onReportsRefresh={vi.fn()}
+        onOpenResultsFolder={vi.fn()}
       />,
     );
 
@@ -193,7 +199,9 @@ describe("InspectorPanel", () => {
         isCheckingRuntime={false}
         onCheckRuntime={vi.fn()}
         onOpenReport={vi.fn()}
+        isOpeningResultsFolder={false}
         onReportsRefresh={vi.fn()}
+        onOpenResultsFolder={vi.fn()}
       />,
     );
 
@@ -224,7 +232,9 @@ describe("InspectorPanel", () => {
         deviceChoice="mps"
         onCheckRuntime={vi.fn()}
         onOpenReport={vi.fn()}
+        isOpeningResultsFolder={false}
         onReportsRefresh={vi.fn()}
+        onOpenResultsFolder={vi.fn()}
       />,
     );
 
@@ -278,7 +288,9 @@ describe("InspectorPanel", () => {
         isCheckingRuntime={false}
         onCheckRuntime={vi.fn()}
         onOpenReport={vi.fn()}
+        isOpeningResultsFolder={false}
         onReportsRefresh={vi.fn()}
+        onOpenResultsFolder={vi.fn()}
       />,
     );
 
@@ -307,7 +319,9 @@ describe("InspectorPanel", () => {
         isCheckingRuntime={false}
         onCheckRuntime={vi.fn()}
         onOpenReport={vi.fn()}
+        isOpeningResultsFolder={false}
         onReportsRefresh={vi.fn()}
+        onOpenResultsFolder={vi.fn()}
       />,
     );
 
@@ -329,7 +343,9 @@ describe("InspectorPanel", () => {
         isCheckingRuntime={false}
         onCheckRuntime={onCheckRuntime}
         onOpenReport={vi.fn()}
+        isOpeningResultsFolder={false}
         onReportsRefresh={vi.fn()}
+        onOpenResultsFolder={vi.fn()}
       />,
     );
 

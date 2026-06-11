@@ -103,6 +103,15 @@ class SelectFilesResponse(BaseModel):
     message: str | None = None
 
 
+class OpenResultsFolderRequest(BaseModel):
+    path: str
+
+
+class OpenResultsFolderResponse(BaseModel):
+    folders: list[str]
+    reports: list["ReportSummary"]
+
+
 class ScanProblem(BaseModel):
     path: str
     name: str
@@ -267,7 +276,7 @@ def report_path_from_id(identifier: str) -> Path:
         raise HTTPException(status_code=404, detail="Unknown report") from exc
     path = (REPO_ROOT / raw).resolve() if not Path(raw).is_absolute() else Path(raw).resolve()
     outputs_root = (REPO_ROOT / "outputs").resolve()
-    if outputs_root not in path.parents and not is_known_run_report(path):
+    if outputs_root not in path.parents and not is_known_run_report(path) and not is_review_report(path):
         raise HTTPException(status_code=404, detail="Unknown report")
     if path.name.startswith("."):
         raise HTTPException(status_code=404, detail="Unknown report")
@@ -328,6 +337,8 @@ def available_reports() -> list[ReportSummary]:
     items: dict[Path, ReportSource] = {}
     for path in recent_reports():
         items[path.resolve()] = "saved"
+    for path in review_reports():
+        items.setdefault(path.resolve(), "saved")
     for path in current_run_reports():
         items.setdefault(path.resolve(), "saved" if is_under_outputs(path) else "current_run")
     summaries = [report_summary(path, source) for path, source in items.items()]
@@ -920,6 +931,43 @@ class RunRecord:
 RUNS: dict[str, RunRecord] = {}
 RUNS_LOCK = threading.Lock()
 
+# Results folders the user opened for review (e.g. downloaded or HPC output
+# folders that were never produced by a run in this process). Reports under
+# `<folder>/reports/` are served exactly like saved reports, without running
+# anything. Lives for the lifetime of the process, like RUNS.
+REVIEW_DIRS: set[Path] = set()
+REVIEW_DIRS_LOCK = threading.Lock()
+
+
+def is_review_report(path: Path) -> bool:
+    with REVIEW_DIRS_LOCK:
+        dirs = set(REVIEW_DIRS)
+    return path.parent.name == "reports" and path.parent.parent in dirs
+
+
+def review_reports() -> list[Path]:
+    with REVIEW_DIRS_LOCK:
+        dirs = sorted(REVIEW_DIRS)
+    paths: list[Path] = []
+    for folder in dirs:
+        paths.extend(folder.glob("reports/brain_volumes_*.xlsx"))
+    return paths
+
+
+def discover_results_folders(folder: Path) -> list[Path]:
+    """Results folders under ``folder`` that contain ``reports/brain_volumes_*.xlsx``.
+
+    Accepts the results folder itself, its ``reports`` subfolder, or a parent
+    holding several results folders one level down."""
+    if folder.name == "reports" and any(folder.glob("brain_volumes_*.xlsx")):
+        return [folder.parent]
+    if any(folder.glob("reports/brain_volumes_*.xlsx")):
+        return [folder]
+    return sorted(
+        child for child in folder.iterdir()
+        if child.is_dir() and any(child.glob("reports/brain_volumes_*.xlsx"))
+    )
+
 
 def is_known_run_report(path: Path) -> bool:
     with RUNS_LOCK:
@@ -1114,6 +1162,32 @@ def create_app() -> FastAPI:
     @app.get("/api/reports", response_model=list[ReportSummary])
     def reports() -> list[ReportSummary]:
         return available_reports()
+
+    @app.post("/api/reports/open-folder", response_model=OpenResultsFolderResponse)
+    def open_results_folder(payload: OpenResultsFolderRequest) -> OpenResultsFolderResponse:
+        folder = user_path(payload.path)
+        if not folder.is_dir():
+            raise HTTPException(status_code=404, detail=f"Folder not found: {display_path(folder)}")
+        try:
+            found = discover_results_folders(folder)
+        except PermissionError as exc:
+            raise HTTPException(status_code=400, detail=f"Folder is not readable: {display_path(folder)}") from exc
+        if not found:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"No results were found in {display_path(folder)}. "
+                    "Pick a results folder that contains reports/brain_volumes_*.xlsx."
+                ),
+            )
+        with REVIEW_DIRS_LOCK:
+            REVIEW_DIRS.update(found)
+        summaries = sorted(
+            (report_summary(path) for root in found for path in root.glob("reports/brain_volumes_*.xlsx")),
+            key=lambda summary: summary.modified,
+            reverse=True,
+        )
+        return OpenResultsFolderResponse(folders=[display_path(root) for root in found], reports=summaries)
 
     @app.get("/api/reports/{identifier}", response_model=ReportDetail)
     def report_detail(identifier: str) -> ReportDetail:

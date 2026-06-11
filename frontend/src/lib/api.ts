@@ -1,6 +1,7 @@
 import type {
   AtlasRegion,
   DefaultsResponse,
+  OpenResultsFolderResponse,
   ReportDetail,
   ReportSummary,
   RuntimeCheck,
@@ -111,6 +112,13 @@ export function getReports(): Promise<ReportSummary[]> {
 
 export function getReport(id: string): Promise<ReportDetail> {
   return request<ReportDetail>(`/api/reports/${id}`);
+}
+
+export function openResultsFolder(path: string): Promise<OpenResultsFolderResponse> {
+  return request<OpenResultsFolderResponse>("/api/reports/open-folder", {
+    method: "POST",
+    body: JSON.stringify({ path }),
+  });
 }
 
 export function getChecks(): Promise<RuntimeCheck[]> {

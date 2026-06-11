@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState } from "react";
 import { Button, Label, ListBox, ListBoxItem, Popover, Select, SelectValue } from "react-aria-components";
-import { Download, FileSpreadsheet, RefreshCcw, Stethoscope } from "lucide-react";
+import { Download, FileSpreadsheet, FolderOpen, RefreshCcw, Stethoscope } from "lucide-react";
 import { openDownload } from "../lib/api";
 import { reportDisplayLabel } from "../lib/reportLabel";
 import type { ReportDetail, ReportSummary, RuntimeCheck, RuntimeReadiness, RunProgress, RunStatus } from "../types";
@@ -28,9 +28,11 @@ type InspectorPanelProps = {
   isCheckingRuntime: boolean;
   /** The currently selected compute device, shown until a run reports its real device. */
   deviceChoice?: string;
+  isOpeningResultsFolder: boolean;
   onCheckRuntime: () => Promise<void>;
   onOpenReport: (id: string) => Promise<void>;
   onReportsRefresh: () => Promise<void>;
+  onOpenResultsFolder: () => Promise<void>;
 };
 
 export function InspectorPanel({
@@ -43,9 +45,11 @@ export function InspectorPanel({
   runtimeReadiness,
   isCheckingRuntime,
   deviceChoice = "auto",
+  isOpeningResultsFolder,
   onCheckRuntime,
   onOpenReport,
   onReportsRefresh,
+  onOpenResultsFolder,
 }: InspectorPanelProps) {
   const [selectedReportId, setSelectedReportId] = useState<string>("");
   const [openingReport, setOpeningReport] = useState(false);
@@ -130,6 +134,11 @@ export function InspectorPanel({
             <RefreshCcw size={15} />
           </Button>
         </div>
+        <Button className="secondary-button wide" isDisabled={isOpeningResultsFolder} onPress={onOpenResultsFolder}>
+          <FolderOpen size={15} />
+          {isOpeningResultsFolder ? "Opening…" : "Open results folder…"}
+        </Button>
+        <div className="inline-note">Review results from a previous or HPC run without running anything.</div>
       </section>
 
       <section className="panel-section artifact-list">
