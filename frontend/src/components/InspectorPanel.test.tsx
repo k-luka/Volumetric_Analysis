@@ -1,6 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { InspectorPanel } from "./InspectorPanel";
+import { reportDisplayLabel } from "../lib/reportLabel";
 import type { ReportDetail, ReportSummary, RuntimeCheck, RuntimeReadiness, RunProgress, RunStatus } from "../types";
 
 vi.mock("../lib/api", () => ({
@@ -152,7 +153,8 @@ describe("InspectorPanel", () => {
     );
 
     expect(screen.getByText(/hasn't been saved to a results folder yet/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /brain_volumes_current/i })).toBeInTheDocument();
+    // The trigger shows the humanized "date · folder" label, not the raw filename.
+    expect(screen.getByRole("button", { name: new RegExp(reportDisplayLabel(currentRunReport)) })).toBeInTheDocument();
   });
 
   it("disables missing artifact actions", () => {

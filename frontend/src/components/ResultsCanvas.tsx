@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, ImageIcon } from "lucide-react";
+import { reportDateLabel } from "../lib/reportLabel";
 import type { ReportDetail, RunProgress, ViewerMode } from "../types";
 import { StructureTable } from "./results/StructureTable";
 import { QcViewer } from "./results/QcViewer";
@@ -14,13 +15,7 @@ type ResultsCanvasProps = {
 type CenterView = "structures" | "slices" | "3d";
 
 function formatTimestamp(value: number): string {
-  if (!Number.isFinite(value) || value <= 0) {
-    return "-";
-  }
-  return new Date(value * 1000).toLocaleString(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
+  return reportDateLabel(value) ?? "-";
 }
 
 function readableSource(source: "saved" | "current_run", temporary: boolean): string {

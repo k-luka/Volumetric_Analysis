@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from "react";
 import { Button, Label, ListBox, ListBoxItem, Popover, Select, SelectValue } from "react-aria-components";
 import { Download, FileSpreadsheet, RefreshCcw, Stethoscope } from "lucide-react";
 import { openDownload } from "../lib/api";
+import { reportDisplayLabel } from "../lib/reportLabel";
 import type { ReportDetail, ReportSummary, RuntimeCheck, RuntimeReadiness, RunProgress, RunStatus } from "../types";
 
 // Compact display of a per-scan stat: numbers get thousands separators and 2
@@ -102,14 +103,16 @@ export function InspectorPanel({
         <Select className="select-field" selectedKey={selectedKey} onSelectionChange={(key) => handleSelectReport(String(key))}>
           <Label>Result</Label>
           <Button className="select-trigger">
-            <SelectValue>{selectedReport?.name ?? (reports.length ? "Select result" : "No reports")}</SelectValue>
+            <SelectValue>{selectedReport ? reportDisplayLabel(selectedReport) : reports.length ? "Select result" : "No reports"}</SelectValue>
           </Button>
           <Popover className="select-popover">
             <ListBox className="select-list">
               {reports.map((report) => (
-                <ListBoxItem className="select-option" id={report.id} key={report.id} textValue={report.name}>
-                  <span>{report.outputDir}</span>
-                  <strong>{report.name}</strong>
+                <ListBoxItem className="select-option" id={report.id} key={report.id} textValue={reportDisplayLabel(report)}>
+                  <strong>{reportDisplayLabel(report)}</strong>
+                  <span>
+                    {report.outputDir} · {report.name}
+                  </span>
                   <em>{report.temporary ? "Current run" : "Saved"}</em>
                 </ListBoxItem>
               ))}

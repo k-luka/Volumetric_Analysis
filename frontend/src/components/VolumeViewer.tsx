@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { MULTIPLANAR_TYPE, Niivue, SHOW_RENDER } from "@niivue/niivue";
+// Type-only: the runtime NiiVue module is `import()`ed lazily in the load
+// effect so the ~1 MB library (plus its codec chunks) stays out of the main
+// bundle — the app shell renders without it and it loads only when a volume
+// view first mounts.
+import type { Niivue } from "@niivue/niivue";
 import { SEG_LABEL_VOLUME_NAME, SEG_MAX_LABEL, type SegLayer } from "../lib/segLut";
 
 type VolumeViewerProps = {
@@ -189,11 +193,16 @@ export default function VolumeViewer({ anatUrl, segUrl, mode, segLayers }: Volum
     setLoading(true);
     setError(null);
 
-    const nv = nvRef.current ?? new Niivue();
-    nvRef.current = nv;
-
     const run = async () => {
       try {
+        // Lazy-load the NiiVue module on first use (see the import note above).
+        // Vitest's vi.mock still intercepts this dynamic specifier in tests.
+        const { Niivue, MULTIPLANAR_TYPE, SHOW_RENDER } = await import("@niivue/niivue");
+        if (cancelled) {
+          return;
+        }
+        const nv = nvRef.current ?? new Niivue();
+        nvRef.current = nv;
         if (!attachedRef.current) {
           await nv.attachToCanvas(canvas);
           attachedRef.current = true;

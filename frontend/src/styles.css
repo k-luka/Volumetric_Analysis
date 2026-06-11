@@ -851,6 +851,13 @@ button:disabled {
   align-items: center;
   gap: 10px;
   min-width: 0;
+  transition: opacity 240ms ease;
+}
+
+/* Before any run, the empty rail and "0%" are noise — recede until a run
+   starts (layout is preserved so the header doesn't shift). */
+.topline-progress.idle {
+  opacity: 0.35;
 }
 
 .topline-progress-rail {

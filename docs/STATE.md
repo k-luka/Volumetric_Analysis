@@ -197,6 +197,16 @@ The local UI MVP is FastAPI plus React. Streamlit is no longer the target UI. Th
     - `outputs/final_acceptance_20260606/ui_narrow_same_origin_390.png`
     - `outputs/final_acceptance_20260606/ui_narrow_loaded_qc_390.png`
   - Harness artifact: `outputs/final_acceptance_20260606/narrow_harness.html`.
+- Completed: 2026-06-10 browser QC pass with fixes (two rounds).
+  - Drove a real tutorial run and a mid-segmentation cancel from Chrome using the `?dev` backdoor (`window.__bvDev`).
+  - Fixed: the Run status card claimed `idle` during an active run; it now follows the SSE progress state and shows the selected device until the run reports the real one.
+  - Fixed: a cancelled run left the progress bar frozen in the running blue; the freeze is now deliberate and styled amber via a `.cancelled` fill.
+  - Fixed: the center canvas said `No result loaded - Run analysis...` while a first run was in flight; it now shows a spinner with the current step, file, and scan count.
+  - Fixed: disabled primary buttons looked clickable in dark mode; they now desaturate explicitly.
+  - Saved-results selector now shows human labels (`Jun 10, 2026, 8:20 PM · ui_demo`) with the folder/filename as the secondary line.
+  - NiiVue is now lazy-loaded inside `VolumeViewer`; the main JS bundle dropped from 1,311 kB to 421 kB (464 kB to 133 kB gzip).
+  - The idle progress rail fades until a run starts.
+  - README/ARCHITECTURE/STATE were resynced to the file-picker + auto-validation + Structures/Slices/3D UI.
 
 ## Current QC Gaps
 
