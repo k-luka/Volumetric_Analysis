@@ -183,6 +183,19 @@ button:disabled {
   background: #1c63d6;
 }
 
+/* The 0.55-opacity global disabled style still reads as clickable on the
+   saturated blue, so desaturate the disabled primary action explicitly. */
+.primary-button:disabled {
+  background: color-mix(in srgb, var(--blue) 26%, var(--field) 74%);
+  border-color: var(--line-strong);
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+  opacity: 1;
+}
+
+.primary-button:disabled:hover {
+  background: color-mix(in srgb, var(--blue) 26%, var(--field) 74%);
+}
+
 .notice-bar {
   margin: 8px 12px 0;
   padding: 10px 12px;
@@ -883,6 +896,13 @@ button:disabled {
   box-shadow: 0 0 16px rgba(255, 96, 122, 0.34);
 }
 
+/* A cancelled run keeps the bar frozen where it stopped; amber marks it as
+   deliberately halted rather than stalled. */
+.topline-progress.cancelled .topline-progress-fill {
+  background: linear-gradient(90deg, #b98a2e 0%, #e6b95c 100%);
+  box-shadow: 0 0 14px rgba(230, 185, 92, 0.3);
+}
+
 .topline-progress-percent {
   color: var(--ink);
   font-family: "SF Mono", Menlo, Consolas, monospace;
@@ -914,6 +934,26 @@ button:disabled {
 
 .empty-canvas strong {
   color: var(--ink);
+}
+
+.run-in-progress .run-spinner {
+  width: 26px;
+  height: 26px;
+  border: 3px solid rgba(114, 166, 255, 0.22);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: run-spinner-turn 0.9s linear infinite;
+}
+
+.run-in-progress .run-progress-counts {
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+@keyframes run-spinner-turn {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .result-meta {

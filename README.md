@@ -74,28 +74,24 @@ Stop the server with `Ctrl-C` in the terminal where it is running.
 ## Run An Analysis
 
 1. Open the local UI.
-2. Choose an **Input folder** containing `.nii` or `.nii.gz` scans.
-3. Choose a **Results folder** where outputs should be written.
-4. Use the folder-plus button if you want the app to create the results folder.
-5. Keep **Compute device** on `auto` unless you specifically need `cpu`, `mps`, or `cuda`.
-6. Turn on **Search subfolders** only if scans are nested inside the input folder.
-7. Click **Check folders** if you want a preflight check.
-8. Click **Run analysis**.
+2. Click **Choose scans…** and pick one or more `.nii` / `.nii.gz` files in the file dialog.
+3. Click **Choose results folder…** and pick the folder where outputs should be written (or keep the default).
+4. Keep **Compute device** on `Automatic` unless you specifically need `cpu`, `mps`, or `cuda`.
+5. Click **Run analysis**.
 
-`Run analysis` also performs the required folder and runtime checks before extraction. `Check folders` is optional.
+The app validates the selected scans and results folder automatically once both are set — the **System status** row under the run button shows the result, and you can expand it for details or click the stethoscope button to recheck the runtime. `Run analysis` re-runs the folder and runtime checks before extraction, so no manual preflight is required.
 
-During a run, the progress bar updates while FastSurfer is segmenting. Segmentation can take minutes depending on device and scan size.
+During a run, the progress bar in the Results header updates while FastSurfer is segmenting, and a **Stop** button appears next to **Run analysis** if you need to cancel. Segmentation can take minutes depending on device and scan size.
 
 ## Try The Tutorial Scan
 
-If the tutorial data exists, the app defaults to:
+If the tutorial data exists, choose this scan with **Choose scans…**:
 
 ```text
-Input folder: data/tutorial
-Results folder: outputs/ui_demo
+data/tutorial/140_orig.nii.gz
 ```
 
-The tutorial scan is useful for confirming the app works end to end before using study data.
+The results folder defaults to `outputs/ui_demo`. The tutorial scan is useful for confirming the app works end to end before using study data.
 
 ## View Results
 
@@ -104,20 +100,18 @@ After a run completes, the app loads the report automatically.
 The center Results area shows:
 
 - subject and report metadata
-- scan-level volume rows
-- a **Structures** view with detailed structure volumes
-- a **QC inspection** view with the per-subject color QC montage
-- an interactive segmentation viewer (built on NiiVue) that overlays the
-  FastSurfer labels on the MRI, with **Montage**, **Slices**, and **3D** modes
-  and per-plane slice sliders
+- a **Structures** view with detailed per-structure volumes
+- **Slices** and **3D** views: an interactive segmentation viewer (built on
+  NiiVue) that overlays the FastSurfer labels on the MRI, with per-plane slice
+  sliders and a **Regions** menu for per-region colors and opacity
 
-The right Reports panel shows saved reports and artifact actions:
+The right Reports panel shows:
 
-- **Download Excel**
-- **Download PDF**
-- **Open color QC**
+- the saved-results selector
+- **Download Excel** and **Download PDF** (enabled once the artifacts exist)
+- run status, per-scan volume rows, the run log, and the system check
 
-Saved reports are listed in the Reports panel, but the app starts blank. A report loads only after a run completes or after you explicitly load one from the Reports panel.
+Saved reports are listed in the Reports panel, but the app starts blank. A report loads only after a run completes or after you select one from the saved-results list.
 
 ## Output Files
 
@@ -164,13 +158,13 @@ python -m volumetric_analysis.check_env
 
 The default config expects FastSurfer from `FASTSURFER_HOME`, `external/fastsurfer`, or an explicit executable path in config.
 
-**Folder picker fails or is inconvenient**
+**File or folder picker fails**
 
-The path fields remain editable. You can paste or type a local path directly.
+The pickers use the native macOS dialog (AppleScript) with a Tk fallback on other platforms. If a dialog does not appear, check the server terminal for errors and confirm the backend is running through the `vol-analysis` environment.
 
 **No results appear on startup**
 
-This is intentional. Use **Run analysis** or select a saved report in the Reports panel and click **Load result**.
+This is intentional. Use **Run analysis** or pick a saved report from the **Result** list in the Reports panel — selecting it loads it.
 
 **Run takes a long time**
 

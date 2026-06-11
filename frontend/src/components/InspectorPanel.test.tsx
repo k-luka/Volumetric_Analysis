@@ -200,6 +200,39 @@ describe("InspectorPanel", () => {
     expect(screen.getByText("[1/1] scan.nii - segmenting...")).toBeInTheDocument();
   });
 
+  it("shows the live run state and selected device while a run is in flight", () => {
+    const runningProgress: RunProgress = {
+      state: "running",
+      percent: 40,
+      label: "Segmenting scan",
+      detail: "scan.nii.gz",
+      currentFile: "scan.nii.gz",
+      counts: "0 of 1 scans",
+    };
+    render(
+      <InspectorPanel
+        reports={[]}
+        activeReport={null}
+        runStatus={null}
+        runProgress={runningProgress}
+        logs={[]}
+        runtimeChecks={[]}
+        runtimeReadiness={runtimeReady}
+        isCheckingRuntime={false}
+        deviceChoice="mps"
+        onCheckRuntime={vi.fn()}
+        onOpenReport={vi.fn()}
+        onReportsRefresh={vi.fn()}
+      />,
+    );
+
+    // runStatus is only fetched at terminal events; the card must not claim
+    // "idle" while SSE progress says the run is live.
+    expect(screen.getByText("running")).toBeInTheDocument();
+    expect(screen.queryByText("idle")).not.toBeInTheDocument();
+    expect(screen.getByText("mps")).toBeInTheDocument();
+  });
+
   it("shows the relocated per-scan results for the active report", () => {
     const reportWithRows: ReportDetail = {
       ...detail(savedReport),

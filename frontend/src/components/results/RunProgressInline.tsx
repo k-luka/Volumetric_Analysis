@@ -44,6 +44,9 @@ function useDisplayedProgress(progress: RunProgress, isRunning: boolean): number
   }, [progress]);
 
   useEffect(() => {
+    // No animation when idle — and none after "cancelled" either: a cancelled
+    // run deliberately freezes the bar where it stopped (styled amber via the
+    // .cancelled class) instead of easing to the event's percent.
     if (!isRunning && progress.state !== "complete" && progress.state !== "error") {
       return;
     }

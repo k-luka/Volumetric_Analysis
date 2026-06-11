@@ -25,6 +25,8 @@ type InspectorPanelProps = {
   runtimeChecks: RuntimeCheck[];
   runtimeReadiness: RuntimeReadiness;
   isCheckingRuntime: boolean;
+  /** The currently selected compute device, shown until a run reports its real device. */
+  deviceChoice?: string;
   onCheckRuntime: () => Promise<void>;
   onOpenReport: (id: string) => Promise<void>;
   onReportsRefresh: () => Promise<void>;
@@ -39,6 +41,7 @@ export function InspectorPanel({
   runtimeChecks,
   runtimeReadiness,
   isCheckingRuntime,
+  deviceChoice = "auto",
   onCheckRuntime,
   onOpenReport,
   onReportsRefresh,
@@ -62,6 +65,9 @@ export function InspectorPanel({
   const runLogs = logs.length ? logs : (runStatus?.logs ?? []);
   const isCancelled = runStatus?.state === "cancelled" || runProgress.state === "cancelled";
   const failureMessage = runStatus?.error || (runProgress.state === "error" || runProgress.state === "cancelled" ? runProgress.detail : "");
+  // `runStatus` is only fetched at terminal events, so while a run is live the
+  // displayed state comes from the SSE-driven progress instead of showing "idle".
+  const liveState = runStatus?.state ?? runProgress.state;
 
   async function handleSelectReport(id: string) {
     setSelectedReportId(id);
@@ -152,9 +158,9 @@ export function InspectorPanel({
         <div className="section-title">Run status</div>
         <div className={`status-card ${runProgress.state === "error" || runStatus?.state === "error" ? "error" : ""}`}>
           <span>State</span>
-          <strong>{runStatus?.state ?? "idle"}</strong>
+          <strong>{liveState}</strong>
           <span>Device</span>
-          <strong>{runStatus?.device ?? "auto"}</strong>
+          <strong>{runStatus?.device ?? deviceChoice}</strong>
         </div>
         {failureMessage ? (
           <div className="run-error-note" role="status">

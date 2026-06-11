@@ -65,11 +65,22 @@ export function ResultsCanvas({ report, runProgress, isRunning }: ResultsCanvasP
 
       {!report ? (
         <div className="empty-canvas">
-          <div>
-            <ImageIcon size={30} />
-            <strong>No result loaded</strong>
-            <span>Run analysis or open a saved report from the Reports panel.</span>
-          </div>
+          {isRunning ? (
+            // A run is live but no report exists yet — describe the work in
+            // progress instead of telling the user to start a run.
+            <div className="run-in-progress" role="status">
+              <span className="run-spinner" aria-hidden="true" />
+              <strong>{runProgress.label || "Analysis in progress"}</strong>
+              <span>{runProgress.currentFile ?? runProgress.detail ?? "Working…"}</span>
+              {runProgress.counts ? <span className="run-progress-counts">{runProgress.counts}</span> : null}
+            </div>
+          ) : (
+            <div>
+              <ImageIcon size={30} />
+              <strong>No result loaded</strong>
+              <span>Run analysis or open a saved report from the Reports panel.</span>
+            </div>
+          )}
         </div>
       ) : (
         <>

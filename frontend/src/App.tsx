@@ -269,6 +269,7 @@ export default function App() {
           runtimeChecks={runtimeChecks}
           runtimeReadiness={runtimeReadiness}
           isCheckingRuntime={isCheckingRuntime}
+          deviceChoice={deviceChoice}
           onCheckRuntime={onCheckRuntime}
           onOpenReport={onOpenReport}
           onReportsRefresh={onReportsRefresh}

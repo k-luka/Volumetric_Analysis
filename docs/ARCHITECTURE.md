@@ -97,8 +97,8 @@ Main API groups:
 | `frontend/src/lib/regionColors.ts` | Default region color palette and per-index color assignment. |
 | `frontend/src/types.ts` | Frontend API and UI state types. |
 | `frontend/src/components/TopBar.tsx` | App top bar and persisted light/dark toggle. |
-| `frontend/src/components/SetupPanel.tsx` | Input/output folder selection, recursive/device controls, runtime row, validate/run actions. |
-| `frontend/src/components/ResultsCanvas.tsx` | Main results surface: progress bar, scan rows, metadata, structure/QC segmented detail view. Detail subviews live in `components/results/`. |
+| `frontend/src/components/SetupPanel.tsx` | Scan-file and results-folder pickers, compute-device select, system-status disclosure, run/stop actions. |
+| `frontend/src/components/ResultsCanvas.tsx` | Main results surface: progress bar, report metadata, and the Structures / Slices / 3D detail switch. Detail subviews live in `components/results/`. |
 | `frontend/src/components/results/StructureTable.tsx` | Per-structure volume table for the selected scan. |
 | `frontend/src/components/results/RegionPanel.tsx` | Region list with visibility/color controls for the overlay. |
 | `frontend/src/components/results/ColorField.tsx` | App-themed color-picker popover (SV square + hue slider + hex input + opacity). |

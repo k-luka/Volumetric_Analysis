@@ -215,6 +215,67 @@ describe("ResultsCanvas", () => {
     expect(screen.getByRole("progressbar", { name: /run progress/i })).toHaveAttribute("aria-valuetext", "Segmenting scan: scan-a.nii.gz");
   });
 
+  it("describes the in-flight run in the canvas instead of saying 'No result loaded'", () => {
+    render(
+      <ResultsCanvas
+        report={null}
+        runProgress={{
+          state: "running",
+          percent: 42,
+          label: "Segmenting scan",
+          detail: "FastSurfer segmentation in progress.",
+          currentFile: "scan-a.nii.gz",
+          counts: "1 of 3 scans",
+        }}
+        isRunning
+      />,
+    );
+
+    // A live run with no prior report must not tell the user to start a run.
+    expect(screen.queryByText("No result loaded")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Segmenting scan");
+    expect(screen.getByRole("status")).toHaveTextContent("scan-a.nii.gz");
+    expect(screen.getByRole("status")).toHaveTextContent("1 of 3 scans");
+  });
+
+  it("freezes the meter where it stopped and marks it cancelled after a cancel", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const running: RunProgress = {
+      state: "running",
+      percent: 30,
+      label: "Segmenting scan",
+      detail: "scan-a.nii.gz",
+      currentFile: "scan-a.nii.gz",
+      counts: "0 of 1 scans",
+    };
+    const { rerender, container } = render(<ResultsCanvas report={null} runProgress={running} isRunning />);
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
+    const movedTo = Number(screen.getByRole("progressbar", { name: /run progress/i }).getAttribute("aria-valuenow"));
+    expect(movedTo).toBeGreaterThan(0);
+
+    const cancelled: RunProgress = {
+      state: "cancelled",
+      percent: 100,
+      label: "Run cancelled",
+      detail: "Analysis cancelled.",
+      currentFile: null,
+      counts: null,
+    };
+    rerender(<ResultsCanvas report={null} runProgress={cancelled} isRunning={false} />);
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+
+    // The bar must not ease toward the cancelled event's 100% — it stays where
+    // the run stopped and is styled via the .cancelled class.
+    const frozen = Number(screen.getByRole("progressbar", { name: /run progress/i }).getAttribute("aria-valuenow"));
+    expect(frozen).toBeLessThanOrEqual(movedTo + 1);
+    expect(container.querySelector(".topline-progress.cancelled")).not.toBeNull();
+  });
+
   it("eases progress toward new backend event targets instead of jumping", () => {
     vi.useFakeTimers();
     vi.setSystemTime(0);

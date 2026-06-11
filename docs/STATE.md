@@ -13,7 +13,7 @@ The local UI MVP is FastAPI plus React. Streamlit is no longer the target UI. Th
 - Backend without shell activation: `conda run --no-capture-output -n vol-analysis python -m volumetric_analysis.web --port 8765`
 - Frontend development: `npm --prefix frontend run dev`
 - Production-style local UI: `python -m volumetric_analysis.web --build --open --port 8765`
-- Primary workflow: select or enter local scan/results paths, optionally check folders, run analysis, view real run results, download Excel/PDF, inspect QC images.
+- Primary workflow: pick scan files and a results folder with the native pickers, run analysis (folders and runtime are validated automatically), view real run results in the Structures/Slices/3D views, download Excel/PDF.
 - Startup behavior: Results starts blank. Saved reports are available in the Reports panel but are not loaded until the user explicitly loads one.
 - Full next-step queue: `docs/NEXT_STEPS.md`.
 
